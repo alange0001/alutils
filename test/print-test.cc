@@ -16,8 +16,8 @@ ALUTILS_PRINT_WRAPPER(print2, printf("PRINT2: %s\n", msg.c_str()));
 int main(int argc, char** argv) {
 	log_level = LOG_DEBUG_OUT;
 
-	print_debug    ("test %d %d %d", 1, 2, 3);
 	print_debug_out("test %d %d %d", 1, 2, 3);
+	print_debug    ("test %d %d %d", 1, 2, 3);
 	print_info     ("test %d %d %d", 1, 2, 3);
 	print_notice   ("test %d %d %d", 1, 2, 3);
 	print_warn     ("test %d %d %d", 1, 2, 3);
