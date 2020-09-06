@@ -38,7 +38,17 @@ int main(int argc, char** argv) {
 	printf("split_str \"%s\": %s\n", s.c_str(), vector_to_str(split_str(s, ",")).c_str());
 	assert( vector_to_str(split_str(s, ",")) == "[\"v1\", \"v2\", \"v3\"]" );
 
-	s = "v1, v2 ,v3";
+	assert( parseBool("true") == true );
+	assert( parseUint32("3245") == (uint32_t)3245 );
+	assert( parseUint64("3245") == (uint64_t)3245 );
+	assert( parseDouble("324.5") == (double)324.5 );
+
+	std::string aux;
+	for (int i = 0; i<200; i++) {
+		aux += std::to_string(i);
+		std::string aux2 = aux + " test %d %d";
+		assert( sprintf(aux2.c_str(),123, i) == aux+std::string(" test 123 ")+std::to_string(i) );
+	}
 
 	return 0;
 }

@@ -6,16 +6,14 @@ project(alutils LANGUAGES CXX)
 set(PROJECT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(WORKSPACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
-# https://github.com/fmtlib/fmt.git
-set(FMT_DIR "${WORKSPACE}/fmt")
-include_directories("${FMT_DIR}/include")
-list(APPEND THIRDPARTY_LIBS "${FMT_DIR}/build/libfmt.a")
+list(APPEND THIRDPARTY_LIBS pthread)
+list(APPEND THIRDPARTY_LIBS dl)
 
 #################################################################
 
 include_directories("${PROJECT_DIR}/include")
 
-add_library(alutils src/string.cc)
+add_library(alutils src/string.cc src/print.cc src/process.cc)
 target_link_libraries(alutils ${THIRDPARTY_LIBS})
 set_property(TARGET alutils PROPERTY CXX_STANDARD 17)
 
