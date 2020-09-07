@@ -122,9 +122,8 @@ std::vector<pid_t> get_children(pid_t parent_pid) {
 #define __CLASS__ "ProcessController::"
 
 ProcessController::ProcessController(const char* name_, const char* cmd,
-		std::function<void(const char*)> handler_stdout_, std::function<void(const char*)> handler_stderr_,
-		bool debug_out_)
-: name(name_), handler_stdout(handler_stdout_), handler_stderr(handler_stderr_), debug_out(debug_out_)
+		std::function<void(const char*)> handler_stdout_, std::function<void(const char*)> handler_stderr_)
+: name(name_), handler_stdout(handler_stdout_), handler_stderr(handler_stderr_)
 {
 	PRINT_DEBUG("constructor. Process %s", name.c_str());
 
@@ -250,7 +249,7 @@ void ProcessController::threadStdout() noexcept {
 
 	try {
 		while (!must_stop && std::fgets(buffer, buffer_size -1, f_stdout) != NULL) {
-			if (debug_out) {
+			if (log_level <= LOG_DEBUG_OUT) {
 				std::string aux = str_replace(buffer, '\n', ' ');
 				PRINT_DEBUG_OUT("stdout line: %s", aux.c_str());
 			}
@@ -273,7 +272,7 @@ void ProcessController::threadStderr() noexcept {
 
 	try {
 		while (!must_stop && std::fgets(buffer, buffer_size -1, f_stderr) != NULL) {
-			if (debug_out) {
+			if (log_level <= LOG_DEBUG_OUT) {
 				std::string aux = str_replace(buffer, '\n', ' ');
 				PRINT_DEBUG_OUT("stderr line: %s", aux.c_str());
 			}

@@ -30,7 +30,6 @@ std::vector<pid_t> get_children(pid_t parent_pid);
 
 class ProcessController {
 	std::string name;
-	bool        debug_out;
 
 	bool must_stop      = false;
 	bool program_active = false;
@@ -56,8 +55,7 @@ class ProcessController {
 	public: //---------------------------------------------------------------------
 	ProcessController(const char* name_, const char* cmd,
 			std::function<void(const char*)> handler_stdout_=ProcessController::default_stdout_handler,
-			std::function<void(const char*)> handler_stderr_=ProcessController::default_stderr_handler,
-			bool debug_out_=false);
+			std::function<void(const char*)> handler_stderr_=ProcessController::default_stderr_handler);
 	~ProcessController();
 
 	bool puts(const std::string value) noexcept;
