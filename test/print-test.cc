@@ -14,6 +14,7 @@ using namespace alutils;
 ALUTILS_PRINT_WRAPPER(print2, printf("PRINT2: %s\n", msg.c_str()));
 
 int main(int argc, char** argv) {
+	printf("\n\n=====================\nprint-test:\n");
 	log_level = LOG_DEBUG_OUT;
 
 	print_debug_out("test %d %d %d", 1, 2, 3);
@@ -27,5 +28,6 @@ int main(int argc, char** argv) {
     print_debug = print2;
 	print_debug    ("test2 %d %d %d", 1, 2, 3);
 
+	printf("OK!!\n");
 	return 0;
 }

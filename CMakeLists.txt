@@ -13,7 +13,7 @@ list(APPEND THIRDPARTY_LIBS dl)
 
 include_directories("${PROJECT_DIR}/include")
 
-add_library(alutils src/string.cc src/print.cc src/process.cc)
+add_library(alutils src/string.cc src/print.cc src/process.cc src/command.cc)
 target_link_libraries(alutils ${THIRDPARTY_LIBS})
 set_property(TARGET alutils PROPERTY CXX_STANDARD 17)
 

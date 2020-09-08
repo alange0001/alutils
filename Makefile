@@ -10,6 +10,7 @@ test: all
 	build/test/string-test
 	build/test/print-test
 	build/test/process-test
+	build/test/command-test
 
 clean:
 	cd build && make clean

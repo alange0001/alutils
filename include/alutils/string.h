@@ -34,7 +34,7 @@ bool     parseBool(const std::string &value, const bool required=true, const boo
 			   std::function<bool(bool)> check_method=nullptr );
 
 uint32_t parseUint32(const std::string &value, const bool required=true, const uint32_t default_=0,
-               const char* error_msg="invalid value (uint64)",
+               const char* error_msg="invalid value (uint32)",
 			   std::function<bool(uint32_t)> check_method=nullptr );
 
 uint64_t parseUint64(const std::string &value, const bool required=true, const uint64_t default_=0,

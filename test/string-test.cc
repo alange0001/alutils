@@ -28,6 +28,7 @@ std::string vector_to_str(const std::vector<std::string>& v) {
 }
 
 int main(int argc, char** argv) {
+	printf("\n\n=====================\nstring-test:\n");
 	std::string s;
 
 	s = " v1, v2, v3 \t";
@@ -50,5 +51,6 @@ int main(int argc, char** argv) {
 		assert( sprintf(aux2.c_str(),123, i) == aux+std::string(" test 123 ")+std::to_string(i) );
 	}
 
+	printf("OK!!\n");
 	return 0;
 }
