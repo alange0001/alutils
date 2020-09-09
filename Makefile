@@ -6,11 +6,19 @@ build: CMakeLists.txt
 	mkdir build || true
 	cd build && cmake .. && make clean
 
-test: all
+string-test: all
 	build/test/string-test
+
+print-test: all
 	build/test/print-test
+
+process-test: all
 	build/test/process-test
+
+command-test: all
 	build/test/command-test
+
+test: string-test print-test process-test command-test
 
 clean:
 	cd build && make clean

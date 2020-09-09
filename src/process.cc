@@ -327,4 +327,54 @@ bool ProcessController::checkStatus() noexcept {
 	return program_active;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ "ThreadController::"
+
+
+ThreadController::ThreadController(main_t main) {
+	_active.store(true);
+	_stop.store(false);
+	thread = std::thread( [this, main]{this->run(main);} );
+}
+
+ThreadController::~ThreadController() {
+	PRINT_DEBUG("destructor begin");
+	stop();
+	if (thread.joinable())
+		thread.join();
+	PRINT_DEBUG("destructor end");
+}
+
+void ThreadController::stop() {
+	PRINT_DEBUG("set _stop=true");
+	_stop.store(true);
+}
+
+bool ThreadController::isActive(bool throw_exception) {
+	if (thread_exception) {
+		if (throw_exception)
+			std::rethrow_exception(thread_exception);
+		else {
+			try { std::rethrow_exception(thread_exception); }
+			catch (std::exception& e) {
+				PRINT_ERROR("exception received: %s", e.what());
+			}
+		}
+	}
+	return _active.load();
+}
+
+void ThreadController::run(main_t main) noexcept {
+	try {
+		PRINT_DEBUG("initiating thread function");
+		main([this]()->bool{return this->_stop.load();});
+	} catch(std::exception& e) {
+		PRINT_DEBUG("exception received: %s", e.what());
+		thread_exception = std::current_exception();
+	}
+	PRINT_DEBUG("thread function finished");
+	_active.store(false);
+}
+
 } // namespace alutils

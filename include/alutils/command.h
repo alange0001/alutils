@@ -10,12 +10,14 @@
 #include <memory>
 #include <functional>
 
+#include "alutils/process.h"
+
 namespace alutils {
 
 struct CmdBase {
 	std::string name;
 	virtual ~CmdBase();
-	virtual void processValue(const std::string& value);
+	virtual void set(const std::string& value);
 };
 
 struct CmdUint32 : public CmdBase {
@@ -26,16 +28,18 @@ struct CmdUint32 : public CmdBase {
 	checker_t checker = nullptr;
 	handler_t handler = nullptr;
 	virtual ~CmdUint32();
-	void processValue(const std::string& value) override;
+	void set(const std::string& value) override;
 };
 
 class Commands {
 	std::vector<CmdBase*> cmd_list;
+	std::unique_ptr<ThreadController> script_thread;
 
 	public:
 	~Commands();
 
-	void interpret(const std::string& str);
+	void monitorScript(const std::string& script, const std::string& delimiter=";");
+	void parseCommand(const std::string& str);
 
 	void registerUint32Address(const std::string& name, uint32_t* address=nullptr, CmdUint32::checker_t checker=nullptr, CmdUint32::handler_t handler=nullptr);
 };

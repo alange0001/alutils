@@ -8,6 +8,7 @@
 #include <regex>
 #include <stdexcept>
 #include <memory>
+#include <regex>
 
 #include <stdarg.h>
 
@@ -109,16 +110,17 @@ bool parseBool(const std::string &value, const bool required, const bool default
 	return ret;
 }
 
-uint32_t parseUint32(const std::string &value, const bool required, const uint32_t default_,
-               const char* error_msg,
-			   std::function<bool(uint32_t)> check_method )
+template<typename T>
+inline T _parse(const std::string &value, std::function<T(const std::string&)> C,
+                const bool required, const T default_, const char* error_msg,
+                std::function<bool(T)> check_method )
 {
 	if (required && value == "")
 		throw std::invalid_argument(error_msg);
-	uint32_t ret = default_;
+	T ret = default_;
 	try {
 		if (value != "")
-			ret = std::stoul(value);
+			ret = C(value);
 	} catch (std::exception& e) {
 		throw std::invalid_argument(error_msg);
 	}
@@ -127,41 +129,39 @@ uint32_t parseUint32(const std::string &value, const bool required, const uint32
 	return ret;
 }
 
-uint64_t parseUint64(const std::string &value, const bool required, const uint64_t default_,
-               const char* error_msg,
-			   std::function<bool(uint64_t)> check_method )
-{
-	if (required && value == "")
-		throw std::invalid_argument(error_msg);
-	uint64_t ret = default_;
-	try {
-		if (value != "")
-			ret = std::stoull(value);
-	} catch (std::exception& e) {
-		throw std::invalid_argument(error_msg);
+#define DECLARE_PARSER(NAME, TYPE, FUNCTION)                                              \
+	static TYPE _##NAME##_C(const std::string& value) {return FUNCTION(value);}           \
+	TYPE NAME(const std::string &value, const bool required, const TYPE default_,         \
+	          const char* error_msg, std::function<bool(TYPE)> check_method )             \
+	{                                                                                     \
+		return _parse<TYPE>(                                                              \
+			value,                                                                        \
+			_##NAME##_C,                                                                  \
+			required, default_, error_msg, check_method);                                 \
 	}
-	if (check_method != nullptr && !check_method(ret))
-		throw std::invalid_argument(error_msg);
-	return ret;
-}
 
-double parseDouble(const std::string &value, const bool required, const double default_,
-               const char* error_msg,
-			   std::function<bool(double)> check_method )
-{
-	if (required && value == "")
-		throw std::invalid_argument(error_msg);
-	double ret = default_;
-	try {
-		if (value != "")
-			ret = std::stod(value);
-	} catch (std::exception& e) {
-		throw std::invalid_argument(error_msg);
+DECLARE_PARSER(parseUint32, uint32_t, std::stoul);
+DECLARE_PARSER(parseUint64, uint64_t, std::stoull);
+DECLARE_PARSER(parseDouble, double,   std::stod);
+
+#define DECLARE_PARSER_SUFFIX(NAME, TYPE, FUNCTION)                                       \
+	TYPE NAME(const std::string& value, const std::map<std::string, TYPE>& suffixes) {    \
+		std::cmatch cm;                                                                   \
+		std::regex_search(value.c_str(), cm, std::regex("^\\s*([0-9]+)\\s*(.*)$"));       \
+		auto val = FUNCTION(cm.str(1));                                                   \
+		auto suf = strip(cm.str(2));                                                      \
+		if (suf != "") {                                                                  \
+			for (auto i : suffixes) {                                                     \
+				if (suf == i.first)                                                       \
+					return val * i.second;                                                \
+			}                                                                             \
+			throw std::runtime_error(sprintf("suffix \"%s\" not found", suf.c_str()));    \
+		}                                                                                 \
+		return val;                                                                       \
 	}
-	if (check_method != nullptr && !check_method(ret))
-		throw std::invalid_argument(error_msg);
-	return ret;
-}
+
+DECLARE_PARSER_SUFFIX(parseUint32Suffix, uint32_t, parseUint32);
+DECLARE_PARSER_SUFFIX(parseUint64Suffix, uint64_t, parseUint64);
 
 std::string vsprintf(const char* format, va_list args) {
 	std::unique_ptr<char[]> buffer;

@@ -51,6 +51,29 @@ int main(int argc, char** argv) {
 		assert( sprintf(aux2.c_str(),123, i) == aux+std::string(" test 123 ")+std::to_string(i) );
 	}
 
+	{ // parseUint32Suffix
+		std::map<std::string, uint32_t> tsm;
+		tsm["s"] = 1;
+		tsm["m"] = 60;
+		auto ts = parseUint32Suffix("10 ", tsm);
+		assert( ts == 10 );
+		ts = parseUint32Suffix(" 20s ", tsm);
+		assert( ts == 20 );
+		ts = parseUint32Suffix("10 m", tsm);
+		assert( ts == 600 );
+		ts = parseUint32Suffix("0 m", tsm);
+		assert( ts == 0 );
+
+		std::string t; bool fail = false;
+
+		try {t=""; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
+		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
+		try {t=" m"; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
+		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
+		try {t="m0"; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
+		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
+	}
+
 	printf("OK!!\n");
 	return 0;
 }

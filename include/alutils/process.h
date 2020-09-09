@@ -9,6 +9,7 @@
 #include <thread>
 #include <functional>
 #include <vector>
+#include <atomic>
 
 #include <sched.h>
 
@@ -66,6 +67,28 @@ class ProcessController {
 
 	static void default_stderr_handler(const char* v) { std::fputs(v, stderr); }
 	static void default_stdout_handler(const char* v) { std::fputs(v, stdout); }
+};
+
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ "ThreadController::"
+
+class ThreadController {
+	std::atomic<bool>  _active = false;
+	std::atomic<bool>  _stop = false;
+	std::thread        thread;
+	std::exception_ptr thread_exception;
+
+	public:
+	typedef std::function<bool(void)> stop_t;
+	typedef std::function<void(stop_t)> main_t;
+	ThreadController(main_t main);
+	~ThreadController();
+	void stop();
+	bool isActive(bool throw_exception=true);
+
+	private:
+	void run(main_t main) noexcept;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////

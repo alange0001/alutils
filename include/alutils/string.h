@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include <functional>
 
@@ -29,21 +30,24 @@ int split_columns(std::vector<std::string>& ret, const char* str, const char* pr
 
 std::vector<std::string> split_str(const std::string& str, const std::string& delimiter);
 
-bool     parseBool(const std::string &value, const bool required=true, const bool default_=true,
+bool parseBool(const std::string &value, const bool required=true, const bool default_=true,
                const char* error_msg="invalid value (boolean)",
-			   std::function<bool(bool)> check_method=nullptr );
+               std::function<bool(bool)> check_method=nullptr );
 
 uint32_t parseUint32(const std::string &value, const bool required=true, const uint32_t default_=0,
-               const char* error_msg="invalid value (uint32)",
-			   std::function<bool(uint32_t)> check_method=nullptr );
+                     const char* error_msg="invalid value (uint32)",
+                     std::function<bool(uint32_t)> check_method=nullptr );
 
 uint64_t parseUint64(const std::string &value, const bool required=true, const uint64_t default_=0,
-               const char* error_msg="invalid value (uint64)",
-			   std::function<bool(uint64_t)> check_method=nullptr );
+                     const char* error_msg="invalid value (uint64)",
+                     std::function<bool(uint64_t)> check_method=nullptr );
 
-double   parseDouble(const std::string &value, const bool required=true, const double default_=0.0,
-               const char* error_msg="invalid value (double)",
-			   std::function<bool(double)> check_method=nullptr );
+double parseDouble(const std::string &value, const bool required=true, const double default_=0.0,
+                   const char* error_msg="invalid value (double)",
+                   std::function<bool(double)> check_method=nullptr );
+
+uint32_t parseUint32Suffix(const std::string& value, const std::map<std::string, uint32_t>& suffixes);
+uint64_t parseUint64Suffix(const std::string& value, const std::map<std::string, uint64_t>& suffixes);
 
 std::string vsprintf(const char* format, va_list args);
 std::string sprintf(const char* format, ...);
