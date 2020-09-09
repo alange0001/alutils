@@ -4,6 +4,8 @@
 // (found in the LICENSE.Apache file in the root directory).
 
 #include "alutils/string.h"
+#include "alutils/internal.h"
+#include "alutils/print.h"
 
 #include <regex>
 #include <stdexcept>
@@ -13,6 +15,10 @@
 #include <stdarg.h>
 
 namespace alutils {
+
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ ""
 
 const char* strip_default = " \t\n\r\f\v";
 
@@ -111,7 +117,7 @@ bool parseBool(const std::string &value, const bool required, const bool default
 }
 
 template<typename T>
-inline T _parse(const std::string &value, std::function<T(const std::string&)> C,
+inline T _parse(std::function<T(const std::string&)> C, const std::string &value,
                 const bool required, const T default_, const char* error_msg,
                 std::function<bool(T)> check_method )
 {
@@ -135,8 +141,8 @@ inline T _parse(const std::string &value, std::function<T(const std::string&)> C
 	          const char* error_msg, std::function<bool(TYPE)> check_method )             \
 	{                                                                                     \
 		return _parse<TYPE>(                                                              \
-			value,                                                                        \
 			_##NAME##_C,                                                                  \
+			value,                                                                        \
 			required, default_, error_msg, check_method);                                 \
 	}
 
@@ -144,24 +150,46 @@ DECLARE_PARSER(parseUint32, uint32_t, std::stoul);
 DECLARE_PARSER(parseUint64, uint64_t, std::stoull);
 DECLARE_PARSER(parseDouble, double,   std::stod);
 
-#define DECLARE_PARSER_SUFFIX(NAME, TYPE, FUNCTION)                                       \
-	TYPE NAME(const std::string& value, const std::map<std::string, TYPE>& suffixes) {    \
-		std::cmatch cm;                                                                   \
-		std::regex_search(value.c_str(), cm, std::regex("^\\s*([0-9]+)\\s*(.*)$"));       \
-		auto val = FUNCTION(cm.str(1));                                                   \
-		auto suf = strip(cm.str(2));                                                      \
-		if (suf != "") {                                                                  \
-			for (auto i : suffixes) {                                                     \
-				if (suf == i.first)                                                       \
-					return val * i.second;                                                \
-			}                                                                             \
-			throw std::runtime_error(sprintf("suffix \"%s\" not found", suf.c_str()));    \
-		}                                                                                 \
-		return val;                                                                       \
+
+bool debug_parseSuffix = false;
+
+template <typename T>
+inline T  _parseSuffix(std::function<T(const std::string&)> C, const std::string& value, const std::map<std::string, T>& suffixes) {
+	std::cmatch cm;
+	std::string value_strip = strip(value);
+
+	std::regex_search(value_strip.c_str(), cm, std::regex("^(-{0,1}[0-9]+\\.{0,1}[0-9]*)\\s*(.*)$"));
+	if (debug_parseSuffix) {
+		PRINT_DEBUG("value='%s', cm[2]='%s', cm[2]='%s'", value.c_str(), cm.str(1).c_str(), cm.str(2).c_str());
 	}
 
-DECLARE_PARSER_SUFFIX(parseUint32Suffix, uint32_t, parseUint32);
-DECLARE_PARSER_SUFFIX(parseUint64Suffix, uint64_t, parseUint64);
+	T val;
+	try {
+		val = C(cm.str(1));
+	} catch (const std::exception& e) {
+		throw std::runtime_error(sprintf("failed to convert value \"%s\" from the string \"%s\": %s", cm.str(1).c_str(), value_strip.c_str(), e.what()).c_str());
+	};
+
+	auto suf = strip(cm.str(2));
+	if (suf != "") {
+		for (auto i : suffixes) {
+			if (suf == i.first)
+				return val * i.second;
+		}
+		throw std::runtime_error(sprintf("invalid suffix \"%s\" in the string \"%s\"", suf.c_str(), value_strip.c_str()));
+	}
+	return val;
+}
+
+#define DECLARE_PARSER_SUFFIX(NAME, TYPE, FUNCTION)                                       \
+	TYPE NAME(const std::string& value, const std::map<std::string, TYPE>& suffixes) {    \
+		return _parseSuffix<TYPE>(FUNCTION, value, suffixes);                             \
+	}
+
+DECLARE_PARSER_SUFFIX(parseUint32Suffix, uint32_t, _parseUint32_C);
+DECLARE_PARSER_SUFFIX(parseUint64Suffix, uint64_t, _parseUint64_C);
+DECLARE_PARSER_SUFFIX(parseDoubleSuffix, double,   _parseDouble_C);
+
 
 std::string vsprintf(const char* format, va_list args) {
 	std::unique_ptr<char[]> buffer;

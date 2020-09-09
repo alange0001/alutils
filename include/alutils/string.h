@@ -46,8 +46,10 @@ double parseDouble(const std::string &value, const bool required=true, const dou
                    const char* error_msg="invalid value (double)",
                    std::function<bool(double)> check_method=nullptr );
 
+extern bool debug_parseSuffix;
 uint32_t parseUint32Suffix(const std::string& value, const std::map<std::string, uint32_t>& suffixes);
 uint64_t parseUint64Suffix(const std::string& value, const std::map<std::string, uint64_t>& suffixes);
+double   parseDoubleSuffix(const std::string& value, const std::map<std::string, double>& suffixes);
 
 std::string vsprintf(const char* format, va_list args);
 std::string sprintf(const char* format, ...);

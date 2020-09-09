@@ -4,6 +4,7 @@
 // (found in the LICENSE.Apache file in the root directory).
 
 #include <alutils/string.h>
+#include <alutils/print.h>
 
 #include <stdio.h>
 #include <cassert>
@@ -29,49 +30,70 @@ std::string vector_to_str(const std::vector<std::string>& v) {
 
 int main(int argc, char** argv) {
 	printf("\n\n=====================\nstring-test:\n");
-	std::string s;
+	log_level = LOG_DEBUG;
+	{
+		std::string s;
 
-	s = " v1, v2, v3 \t";
-	printf("strip \"%s\": \"%s\"\n", s.c_str(), strip(s).c_str());
-	assert( strip(s) == "v1, v2, v3" );
+		s = " v1, v2, v3 \t";
+		printf("strip \"%s\": \"%s\"\n", s.c_str(), strip(s).c_str());
+		assert( strip(s) == "v1, v2, v3" );
 
-	s = "v1, v2 ,v3 ";
-	printf("split_str \"%s\": %s\n", s.c_str(), vector_to_str(split_str(s, ",")).c_str());
-	assert( vector_to_str(split_str(s, ",")) == "[\"v1\", \"v2\", \"v3\"]" );
+		s = "v1, v2 ,v3 ";
+		printf("split_str \"%s\": %s\n", s.c_str(), vector_to_str(split_str(s, ",")).c_str());
+		assert( vector_to_str(split_str(s, ",")) == "[\"v1\", \"v2\", \"v3\"]" );
 
-	assert( parseBool("true") == true );
-	assert( parseUint32("3245") == (uint32_t)3245 );
-	assert( parseUint64("3245") == (uint64_t)3245 );
-	assert( parseDouble("324.5") == (double)324.5 );
+		assert( parseBool("true") == true );
+		assert( parseUint32("3245") == (uint32_t)3245 );
+		assert( parseUint64("3245") == (uint64_t)3245 );
+		assert( parseDouble("324.5") == (double)324.5 );
 
-	std::string aux;
-	for (int i = 0; i<200; i++) {
-		aux += std::to_string(i);
-		std::string aux2 = aux + " test %d %d";
-		assert( sprintf(aux2.c_str(),123, i) == aux+std::string(" test 123 ")+std::to_string(i) );
+		std::string aux;
+		for (int i = 0; i<200; i++) {
+			aux += std::to_string(i);
+			std::string aux2 = aux + " test %d %d";
+			assert( sprintf(aux2.c_str(),123, i) == aux+std::string(" test 123 ")+std::to_string(i) );
+		}
 	}
 
-	{ // parseUint32Suffix
-		std::map<std::string, uint32_t> tsm;
-		tsm["s"] = 1;
-		tsm["m"] = 60;
-		auto ts = parseUint32Suffix("10 ", tsm);
-		assert( ts == 10 );
-		ts = parseUint32Suffix(" 20s ", tsm);
-		assert( ts == 20 );
-		ts = parseUint32Suffix("10 m", tsm);
-		assert( ts == 600 );
-		ts = parseUint32Suffix("0 m", tsm);
-		assert( ts == 0 );
+	{ // parse*Suffix
+		debug_parseSuffix = true;
+		std::string str;
+		bool fail = false;
+		std::map<std::string, uint32_t> u32suf { {"s",1}, {"m",60} };
 
-		std::string t; bool fail = false;
+		uint32_t u32v;
+		u32v = parseUint32Suffix("10 ", u32suf);
+		assert( u32v == 10 );
+		u32v = parseUint32Suffix(" 20s ", u32suf);
+		assert( u32v == 20 );
+		u32v = parseUint32Suffix("10 m", u32suf);
+		assert( u32v == 600 );
+		u32v = parseUint32Suffix("0 m", u32suf);
+		assert( u32v == 0 );
 
-		try {t=""; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
-		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
-		try {t=" m"; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
-		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
-		try {t="m0"; ts = parseUint32Suffix(t.c_str(), tsm); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", t.c_str(), e.what());}
-		if (fail) throw std::runtime_error(alutils::sprintf("test failed for \"%s\"", t.c_str()));
+		try {str=""; u32v = parseUint32Suffix(str.c_str(), u32suf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
+		assert (!fail);
+		try {str=" m"; u32v = parseUint32Suffix(str.c_str(), u32suf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
+		assert (!fail);
+		try {str="m0"; u32v = parseUint32Suffix(str.c_str(), u32suf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
+		assert (!fail);
+
+		fail = false;
+		double dv;
+		std::map<std::string, double> dsuf { {"K",1000}, {"M",1000000} };
+		dv = parseDoubleSuffix("1.1K", dsuf);
+		assert( dv==1100 );
+		dv = parseDoubleSuffix("-1.2M", dsuf);
+		assert( dv==-1200000 );
+		dv = parseDoubleSuffix("-0M", dsuf);
+		assert( dv==0 );
+		dv = parseDoubleSuffix("0M", dsuf);
+		assert( dv==0 );
+
+		try {str="--0M"; dv = parseDoubleSuffix(str.c_str(), dsuf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
+		assert (!fail);
+		try {str="5.5s"; dv = parseDoubleSuffix(str.c_str(), dsuf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
+		assert (!fail);
 	}
 
 	printf("OK!!\n");
