@@ -8,6 +8,8 @@
 #include "alutils/internal.h"
 #include "alutils/print.h"
 
+#include <type_traits>
+
 namespace alutils {
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -19,19 +21,36 @@ void CmdBase::set(const std::string& value){}
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
-#define __CLASS__ "CmdUint32::"
+#define __CLASS__ "CmdTemplate::"
 
-CmdUint32::~CmdUint32(){
+template <typename T>
+CmdTemplate<T>::CmdTemplate(const std::string& name, bool required, T default_, T* address, checker_t checker, handler_t handler):
+	required(required), default_(default_), address(address), checker(checker), handler(handler)
+{
+	this->name = name;
+	if (address == nullptr && handler == nullptr)
+		throw std::runtime_error("either address or handler must be not null");
+}
+
+template <typename T>
+CmdTemplate<T>::~CmdTemplate(){
 	PRINT_DEBUG("destructor");
 }
 
-void CmdUint32::set(const std::string& value) {
-	uint32_t aux = parseUint32(value, true, 0, sprintf("invalid value for the command %s: %s", name.c_str(), value.c_str()).c_str(), checker);
+template <typename T>
+void CmdTemplate<T>::set(const std::string& value) {
+	T aux = parse<T>(value, required, default_, sprintf("invalid value for the command %s: %s", name.c_str(), value.c_str()).c_str(), checker);
 	if (address)
 		*address = aux;
 	if (handler)
 		handler(aux);
 }
+
+template class CmdTemplate<bool>;
+template class CmdTemplate<uint32_t>;
+template class CmdTemplate<uint64_t>;
+template class CmdTemplate<double>;
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -52,9 +71,7 @@ void Commands::monitorScript(const std::string& script, const std::string& delim
 	auto commands = split_str(script, delimiter);
 
 	script_thread.reset(new ThreadController( [this, commands](ThreadController::stop_t stop) {
-		std::map<std::string, uint64_t> suffixes;
-		suffixes["s"] = 1;
-		suffixes["m"] = 60;
+		std::map<std::string, uint64_t> suffixes { {"s",1}, {"m",60} };
 
 		auto time_ini = std::chrono::system_clock::now();
 		uint64_t time_elapsed;
@@ -107,14 +124,7 @@ void Commands::parseCommand(const std::string& str) {
 	throw std::runtime_error(sprintf("invalid command \"%s\"", key_val[0].c_str()));
 }
 
-void Commands::registerUint32Address(const std::string& name, uint32_t* address, CmdUint32::checker_t checker, CmdUint32::handler_t handler) {
-	if (address == nullptr && handler == nullptr)
-		throw std::runtime_error("either address or handler must be not null");
-	CmdUint32 *cmd = new CmdUint32();
-	cmd->name = name;
-	cmd->address = address;
-	cmd->checker = checker;
-	cmd->handler = handler;
+void Commands::registerCmd( CmdBase* cmd ) {
 	cmd_list.push_back(cmd);
 }
 

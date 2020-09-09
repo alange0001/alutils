@@ -14,22 +14,38 @@
 
 namespace alutils {
 
+////////////////////////////////////////////////////////////////////////////////////
+
 struct CmdBase {
 	std::string name;
 	virtual ~CmdBase();
 	virtual void set(const std::string& value);
 };
 
-struct CmdUint32 : public CmdBase {
-	typedef std::function<bool(uint32_t)> checker_t;
-	typedef std::function<void(uint32_t)> handler_t;
+////////////////////////////////////////////////////////////////////////////////////
 
-	uint32_t* address = nullptr;
+template <typename T>
+struct CmdTemplate : public CmdBase {
+	typedef std::function<bool(T)> checker_t;
+	typedef std::function<void(T)> handler_t;
+
+	bool      required = true;
+	T         default_ = (T)0;
+	T*        address = nullptr;
 	checker_t checker = nullptr;
 	handler_t handler = nullptr;
-	virtual ~CmdUint32();
+	CmdTemplate(const std::string& name, bool required=true, T default_=(T)0, T* address=nullptr, checker_t checker=nullptr, handler_t handler=nullptr);
+	virtual ~CmdTemplate();
 	void set(const std::string& value) override;
 };
+
+typedef CmdTemplate<bool>     CmdBool;
+typedef CmdTemplate<uint32_t> CmdUint32;
+typedef CmdTemplate<uint64_t> CmdUint64;
+typedef CmdTemplate<double>   CmdDouble;
+
+
+////////////////////////////////////////////////////////////////////////////////////
 
 class Commands {
 	std::vector<CmdBase*> cmd_list;
@@ -41,7 +57,7 @@ class Commands {
 	void monitorScript(const std::string& script, const std::string& delimiter=";");
 	void parseCommand(const std::string& str);
 
-	void registerUint32Address(const std::string& name, uint32_t* address=nullptr, CmdUint32::checker_t checker=nullptr, CmdUint32::handler_t handler=nullptr);
+	void registerCmd( CmdBase* cmd );
 };
 
 } // namespace alutils

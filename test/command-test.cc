@@ -17,8 +17,8 @@ int main(int argc, char** argv) {
 		Commands commands;
 
 		uint32_t cmd1, cmd2;
-		commands.registerUint32Address("cmd1", &cmd1);
-		commands.registerUint32Address("cmd2", &cmd2);
+		commands.registerCmd( new CmdUint32("cmd1", true, 0, &cmd1) );
+		commands.registerCmd( new CmdUint32("cmd2", true, 0, &cmd2) );
 
 		commands.parseCommand("cmd1=123");
 		commands.parseCommand("cmd1 = 456");
@@ -39,6 +39,8 @@ int main(int argc, char** argv) {
 		std::this_thread::sleep_for(std::chrono::seconds(5));
 		assert( cmd1 == 1 );
 		assert( cmd2 == 2 );
+
+		//commands.registerCmd(new CmdUint64({.name = "test"}) );
 	}
 	printf("OK!!\n");
 	return 0;

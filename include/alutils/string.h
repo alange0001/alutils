@@ -30,27 +30,36 @@ int split_columns(std::vector<std::string>& ret, const char* str, const char* pr
 
 std::vector<std::string> split_str(const std::string& str, const std::string& delimiter);
 
-bool parseBool(const std::string &value, const bool required=true, const bool default_=true,
-               const char* error_msg="invalid value (boolean)",
-               std::function<bool(bool)> check_method=nullptr );
+////////////////////////////////////////////////////////////////////////////////////
+extern bool debug_parse;
 
-uint32_t parseUint32(const std::string &value, const bool required=true, const uint32_t default_=0,
-                     const char* error_msg="invalid value (uint32)",
-                     std::function<bool(uint32_t)> check_method=nullptr );
+template<typename T>
+T parse(const std::string &value,
+        const bool required=true, const T default_=(T)0, const char* error_msg=nullptr,
+        std::function<bool(T)> check_method=nullptr );
 
-uint64_t parseUint64(const std::string &value, const bool required=true, const uint64_t default_=0,
-                     const char* error_msg="invalid value (uint64)",
-                     std::function<bool(uint64_t)> check_method=nullptr );
+#define DECLARE_PARSER(NAME, TYPE)                                                        \
+    inline TYPE NAME(                                                                     \
+        const std::string &value, const bool required=true, const TYPE default_=(TYPE)0,  \
+        const char* error_msg=nullptr, std::function<bool(TYPE)> check_method=nullptr )   \
+    {                                                                                     \
+        return parse<TYPE>(value, required, default_, error_msg, check_method);           \
+    }
 
-double parseDouble(const std::string &value, const bool required=true, const double default_=0.0,
-                   const char* error_msg="invalid value (double)",
-                   std::function<bool(double)> check_method=nullptr );
+DECLARE_PARSER(parseBool, bool);
+DECLARE_PARSER(parseUint32, uint32_t);
+DECLARE_PARSER(parseUint64, uint64_t);
+DECLARE_PARSER(parseDouble, double);
 
+#undef DECLARE_PARSER
+
+////////////////////////////////////////////////////////////////////////////////////
 extern bool debug_parseSuffix;
 uint32_t parseUint32Suffix(const std::string& value, const std::map<std::string, uint32_t>& suffixes);
 uint64_t parseUint64Suffix(const std::string& value, const std::map<std::string, uint64_t>& suffixes);
 double   parseDoubleSuffix(const std::string& value, const std::map<std::string, double>& suffixes);
 
+////////////////////////////////////////////////////////////////////////////////////
 std::string vsprintf(const char* format, va_list args);
 std::string sprintf(const char* format, ...);
 
