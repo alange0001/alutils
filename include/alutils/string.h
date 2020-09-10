@@ -38,7 +38,7 @@ T parse(const std::string &value,
         const bool required=true, const T default_=(T)0, const char* error_msg=nullptr,
         std::function<bool(T)> check_method=nullptr );
 
-#define DECLARE_PARSER(NAME, TYPE)                                                        \
+#define DECLARE_PARSE(NAME, TYPE)                                                         \
     inline TYPE NAME(                                                                     \
         const std::string &value, const bool required=true, const TYPE default_=(TYPE)0,  \
         const char* error_msg=nullptr, std::function<bool(TYPE)> check_method=nullptr )   \
@@ -46,18 +46,34 @@ T parse(const std::string &value,
         return parse<TYPE>(value, required, default_, error_msg, check_method);           \
     }
 
-DECLARE_PARSER(parseBool, bool);
-DECLARE_PARSER(parseUint32, uint32_t);
-DECLARE_PARSER(parseUint64, uint64_t);
-DECLARE_PARSER(parseDouble, double);
+DECLARE_PARSE(parseBool,   bool);
+DECLARE_PARSE(parseInt32,  int32_t);
+DECLARE_PARSE(parseInt64,  int64_t);
+DECLARE_PARSE(parseUint32, uint32_t);
+DECLARE_PARSE(parseUint64, uint64_t);
+DECLARE_PARSE(parseDouble, double);
 
-#undef DECLARE_PARSER
+#undef DECLARE_PARSE
 
 ////////////////////////////////////////////////////////////////////////////////////
 extern bool debug_parseSuffix;
-uint32_t parseUint32Suffix(const std::string& value, const std::map<std::string, uint32_t>& suffixes);
-uint64_t parseUint64Suffix(const std::string& value, const std::map<std::string, uint64_t>& suffixes);
-double   parseDoubleSuffix(const std::string& value, const std::map<std::string, double>& suffixes);
+
+template <typename T>
+T parseSuffix(const std::string& value, const std::map<std::string, T>& suffixes);
+
+#define DECLARE_PARSE_SUFFIX(NAME, TYPE)                                                    \
+    inline TYPE NAME(const std::string& value, const std::map<std::string, TYPE>& suffixes) \
+    {                                                                                       \
+        return parseSuffix<TYPE>(value, suffixes);                                          \
+    }
+
+DECLARE_PARSE_SUFFIX(parseInt32Suffix,  int32_t);
+DECLARE_PARSE_SUFFIX(parseInt64Suffix,  int64_t);
+DECLARE_PARSE_SUFFIX(parseUint32Suffix, uint32_t);
+DECLARE_PARSE_SUFFIX(parseUint64Suffix, uint64_t);
+DECLARE_PARSE_SUFFIX(parseDoubleSuffix, double  );
+
+#undef DECLARE_PARSE_SUFFIX
 
 ////////////////////////////////////////////////////////////////////////////////////
 std::string vsprintf(const char* format, va_list args);

@@ -31,10 +31,10 @@ std::string vector_to_str(const std::vector<std::string>& v) {
 int main(int argc, char** argv) {
 	printf("\n\n=====================\nstring-test:\n");
 	log_level = LOG_DEBUG;
+	bool fail = false;
 	{
 		debug_parse = true;
 		std::string s;
-		bool fail;
 
 		s = " v1, v2, v3 \t";
 		printf("strip \"%s\": \"%s\"\n", s.c_str(), strip(s).c_str());
@@ -49,25 +49,45 @@ int main(int argc, char** argv) {
 		assert( parseBool("false") == false );
 		assert( parseBool("0") == false );
 		assert( parseBool("", false, true) == true );
-		assert( parseBool("", false, false) == false );
-
-		fail = false;
+		assert( parseBool(" ", false, false) == false );
 
 		try {s=""; parseBool(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
 		assert (!fail);
 		try {s="32"; parseBool(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
 		assert (!fail);
 
-		assert( parseUint32("3245") == (uint32_t)3245 );
-		assert( parseUint64("3245") == (uint64_t)3245 );
-		assert( parseDouble("324.5") == (double)324.5 );
-		assert( parseDouble("", false, 324.5) == (double)324.5 );
+		assert( parseInt32("-3245") == -3245 );
+		assert( parseInt64("-3245") == -3245 );
+		assert( parseUint32("3245") == 3245 );
+		assert( parseUint32("", false, 324) == 324 );
+		assert( parseUint64("3245") == 3245 );
 
+		try {s="2a"; parseUint32(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
+		try {s="-2"; parseUint32(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
+
+		assert( parseDouble("-324.5") == -324.5 );
+		assert( parseDouble("-.5") == -.5 );
+		assert( parseDouble(".5") == .5 );
+		assert( parseDouble("5.") == 5. );
+		assert( parseDouble(" ", false, 324.5) == 324.5 );
 		try {s=""; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
+		try {s="-"; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
+		try {s="-."; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
+		try {s="-1.a"; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
 		assert (!fail);
 		try {s="true"; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
 		assert (!fail);
+		try {s="ad2"; parseDouble(s.c_str()); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", s.c_str(), e.what());}
+		assert (!fail);
 
+	}
+
+	{ // sprintf
 		std::string aux;
 		for (int i = 0; i<200; i++) {
 			aux += std::to_string(i);
@@ -79,7 +99,6 @@ int main(int argc, char** argv) {
 	{ // parse*Suffix
 		debug_parseSuffix = true;
 		std::string str;
-		bool fail = false;
 		std::map<std::string, uint32_t> u32suf { {"s",1}, {"m",60} };
 
 		uint32_t u32v;
@@ -99,7 +118,6 @@ int main(int argc, char** argv) {
 		try {str="m0"; u32v = parseUint32Suffix(str.c_str(), u32suf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
 		assert (!fail);
 
-		fail = false;
 		double dv;
 		std::map<std::string, double> dsuf { {"K",1000}, {"M",1000000} };
 		dv = parseDoubleSuffix("1.1K", dsuf);

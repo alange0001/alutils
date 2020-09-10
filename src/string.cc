@@ -13,8 +13,6 @@
 #include <regex>
 #include <type_traits>
 
-#include <typeinfo>
-
 #include <stdarg.h>
 
 namespace alutils {
@@ -106,23 +104,39 @@ static bool stobool(const std::string& value) {
 	throw std::runtime_error(sprintf("failed to convert the string \"%s\" to boolean", value.c_str()));
 }
 
-template<typename T>
-inline T stoT(const std::string& value) {
-	if constexpr (std::is_same<T, uint32_t>()) {
-		return std::stoul(value);
-	} else if constexpr (std::is_same<T, uint64_t>()) {
-		return std::stoull(value);
-	} else if constexpr (std::is_same<T, double>()) {
-		return std::stod(value);
-	} else if constexpr (std::is_same<T, bool>()) {
-		return stobool(value);
-	}
+
+template<typename T> constexpr const char* get_validate_re() { return ".*"; }
+template<> constexpr const char* get_validate_re<int32_t>()  { return "^-{0,1}[0-9]+$"; }
+template<> constexpr const char* get_validate_re<int64_t>()  { return "^-{0,1}[0-9]+$"; }
+template<> constexpr const char* get_validate_re<uint32_t>() { return "^[0-9]+$"; }
+template<> constexpr const char* get_validate_re<uint64_t>() { return "^[0-9]+$"; }
+template<> constexpr const char* get_validate_re<double>()   { return "^-{0,1}([0-9]+\\.{0,1}[0-9]*|[0-9]*\\.[0-9]+)$"; }
+
+template<typename T> static bool validate(const std::string& value) {
+	auto re_str = get_validate_re<T>();
+	return std::regex_match(value, std::regex(re_str));
 }
 
-static const char* get_parse_error(std::string& dest, const std::string& value, const char* error_msg, const std::string& type) {
+template<typename T> inline T stoT(const std::string& value) { throw std::runtime_error("not implemented"); }
+template<> inline bool     stoT<bool>    (const std::string& value) { return stobool(value);     }
+template<> inline int32_t  stoT<int32_t> (const std::string& value) { return std::stol(value);   }
+template<> inline int64_t  stoT<int64_t> (const std::string& value) { return std::stoll(value);  }
+template<> inline uint32_t stoT<uint32_t>(const std::string& value) { return std::stoul(value);  }
+template<> inline uint64_t stoT<uint64_t>(const std::string& value) { return std::stoull(value); }
+template<> inline double   stoT<double>  (const std::string& value) { return std::stod(value);   }
+
+template<typename T> constexpr const char* get_type_name() { throw std::runtime_error("not implemented"); }
+template<> constexpr const char* get_type_name<bool>()     { return "boolean"; }
+template<> constexpr const char* get_type_name<int32_t>()  { return "int32";   }
+template<> constexpr const char* get_type_name<int64_t>()  { return "int64";   }
+template<> constexpr const char* get_type_name<uint32_t>() { return "uint32";  }
+template<> constexpr const char* get_type_name<uint64_t>() { return "uint64";  }
+template<> constexpr const char* get_type_name<double>()   { return "double";  }
+
+static const char* get_parse_error(std::string& dest, const char* error_msg, const std::string& value, const char* type) {
 	if (error_msg != nullptr)
 		return error_msg;
-	dest = sprintf("failed to convert the string \"%s\" to type %s", value.c_str(), type.c_str());
+	dest = sprintf("failed to convert the string \"%s\" to type %s", value.c_str(), type);
 	return dest.c_str();
 }
 
@@ -131,43 +145,49 @@ T parse(const std::string &value,
         const bool required, const T default_, const char* error_msg,
         std::function<bool(T)> check_method)
 {
-	std::string error_aux;
+	auto type_name = get_type_name<T>();
+	auto value_strip = strip(value);
+	std::string error_buffer;
 
 	if (debug_parse)
-		PRINT_DEBUG("value=\"%s\"", value.c_str());
+		PRINT_DEBUG("value=\"%s\"", value_strip.c_str());
 
-	if (required && value == "")
-		throw std::invalid_argument(get_parse_error(error_aux, value, error_msg, typeid(T).name()));
+	if (required && (value_strip == "" || !validate<T>(value_strip)))
+		throw std::invalid_argument(get_parse_error(error_buffer, error_msg, value_strip, type_name));
 
 	T ret = default_;
 	try {
-		if (value != "")
-			ret = stoT<T>(value);
+		if (value_strip != "")
+			ret = stoT<T>(value_strip);
 	} catch (std::exception& e) {
-		throw std::invalid_argument(get_parse_error(error_aux, value, error_msg, typeid(T).name()));
+		throw std::invalid_argument(get_parse_error(error_buffer, error_msg, value_strip, type_name));
 	}
 
 	if (check_method != nullptr && !check_method(ret))
-		throw std::invalid_argument(get_parse_error(error_aux, value, error_msg, typeid(T).name()));
+		throw std::invalid_argument(get_parse_error(error_buffer, error_msg, value_strip, type_name));
+
+	if (debug_parse)
+		PRINT_DEBUG("string \"%s\" parsed to %s", value_strip.c_str(), std::to_string(ret).c_str());
 	return ret;
 }
 
-#define DECLARE_PARSER(TYPE)                                                  \
+#define DECLARE_PARSE(TYPE)                                                   \
     template TYPE parse<TYPE>(const std::string &value, const bool required,  \
                               const TYPE default_, const char* error_msg,     \
                               std::function<bool(TYPE)> check_method)
 
-DECLARE_PARSER(bool);
-DECLARE_PARSER(uint32_t);
-DECLARE_PARSER(uint64_t);
-DECLARE_PARSER(double);
-
+DECLARE_PARSE(bool);
+DECLARE_PARSE(int32_t);
+DECLARE_PARSE(int64_t);
+DECLARE_PARSE(uint32_t);
+DECLARE_PARSE(uint64_t);
+DECLARE_PARSE(double);
 
 ////////////////////////////////////////////////////////////////////////////////////
 bool debug_parseSuffix = false;
 
 template <typename T>
-inline T parseSuffix(const std::string& value, const std::map<std::string, T>& suffixes) {
+T parseSuffix(const std::string& value, const std::map<std::string, T>& suffixes) {
 	std::cmatch cm;
 	std::string value_strip = strip(value);
 
@@ -178,9 +198,11 @@ inline T parseSuffix(const std::string& value, const std::map<std::string, T>& s
 
 	T val;
 	try {
+		if (!validate<T>(cm.str(1)))
+			throw std::invalid_argument("validation error");
 		val = stoT<T>(cm.str(1));
 	} catch (const std::exception& e) {
-		throw std::runtime_error(sprintf("failed to convert value \"%s\" from the string \"%s\": %s", cm.str(1).c_str(), value_strip.c_str(), e.what()).c_str());
+		throw std::runtime_error(sprintf("failed to convert value \"%s\" to type %s from the string \"%s\": %s", cm.str(1).c_str(), get_type_name<T>(), value_strip.c_str(), e.what()).c_str());
 	};
 
 	auto suf = strip(cm.str(2));
@@ -194,15 +216,17 @@ inline T parseSuffix(const std::string& value, const std::map<std::string, T>& s
 	return val;
 }
 
-#define DECLARE_PARSER_SUFFIX(NAME, TYPE)                                               \
-    TYPE NAME(const std::string& value, const std::map<std::string, TYPE>& suffixes) {  \
-        return parseSuffix<TYPE>(value, suffixes);                                      \
-    }
+#define DECLARE_PARSE_SUFFIX(TYPE)                              \
+    template TYPE parseSuffix<TYPE>(const std::string& value,   \
+                  const std::map<std::string, TYPE>& suffixes)
 
-DECLARE_PARSER_SUFFIX(parseUint32Suffix, uint32_t);
-DECLARE_PARSER_SUFFIX(parseUint64Suffix, uint64_t);
-DECLARE_PARSER_SUFFIX(parseDoubleSuffix, double);
+DECLARE_PARSE_SUFFIX(int32_t);
+DECLARE_PARSE_SUFFIX(int64_t);
+DECLARE_PARSE_SUFFIX(uint32_t);
+DECLARE_PARSE_SUFFIX(uint64_t);
+DECLARE_PARSE_SUFFIX(double);
 
+////////////////////////////////////////////////////////////////////////////////////
 
 std::string vsprintf(const char* format, va_list args) {
 	std::unique_ptr<char[]> buffer;

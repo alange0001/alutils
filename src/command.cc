@@ -17,6 +17,7 @@ namespace alutils {
 #define __CLASS__ "CmdBase::"
 
 CmdBase::~CmdBase() {}
+void CmdBase::test(const std::string& value){}
 void CmdBase::set(const std::string& value){}
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -38,8 +39,13 @@ CmdTemplate<T>::~CmdTemplate(){
 }
 
 template <typename T>
+void CmdTemplate<T>::test(const std::string& value) {
+	parse<T>(value, required, default_, sprintf("test failed for the command \"%s\" value \"%s\"", name.c_str(), value.c_str()).c_str(), checker);
+}
+
+template <typename T>
 void CmdTemplate<T>::set(const std::string& value) {
-	T aux = parse<T>(value, required, default_, sprintf("invalid value for the command %s: %s", name.c_str(), value.c_str()).c_str(), checker);
+	T aux = parse<T>(value, required, default_, sprintf("invalid value for the command \"%s\": \"%s\"", name.c_str(), value.c_str()).c_str(), checker);
 	if (address)
 		*address = aux;
 	if (handler)
@@ -47,14 +53,42 @@ void CmdTemplate<T>::set(const std::string& value) {
 }
 
 template class CmdTemplate<bool>;
+template class CmdTemplate<int32_t>;
+template class CmdTemplate<int64_t>;
 template class CmdTemplate<uint32_t>;
 template class CmdTemplate<uint64_t>;
 template class CmdTemplate<double>;
 
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ "ScriptCommand::"
+
+ScriptCommand::ScriptCommand(const std::string& str) {
+	const std::map<std::string, uint64_t> time_suffixes { {"s",1}, {"m",60} };
+
+	auto c2 = split_str(str, ":");
+	if (c2.size() > 2)
+		throw std::runtime_error(sprintf("invalid command format: \"%s\"", str.c_str()));
+
+	if (c2.size() > 1) {
+		try {
+			time = parseUint64Suffix(c2[0], time_suffixes);
+		} catch (const std::exception& e) {
+			throw std::runtime_error(sprintf("failed to parse time \"%s\": %s", c2[0].c_str(), e.what()));
+		}
+		command = c2[1];
+	} else {
+		command = c2[0];
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
 #define __CLASS__ "Commands::"
+
+Commands::Commands() {
+	time_ini = std::chrono::system_clock::now();
+}
 
 Commands::~Commands() {
 	PRINT_DEBUG("destructor begin");
@@ -64,64 +98,78 @@ Commands::~Commands() {
 	PRINT_DEBUG("destructor end");
 }
 
-void Commands::monitorScript(const std::string& script, const std::string& delimiter) {
-	PRINT_DEBUG("script=\"%s\"", script.c_str());
-	if (script_thread.get() != nullptr)
-		throw std::runtime_error("monitorScript is already set");
+void Commands::monitorScript(const std::string& script, const std::string& delimiter, bool reset_time) {
+	PRINT_DEBUG("script=\"%s\", delimiter=\"%s\"", script.c_str(), delimiter.c_str());
+	if (script_thread.get() != nullptr && script_thread->isActive(false))
+		throw std::runtime_error("monitorScript is already active");
+
+	script_thread.reset(nullptr);
 	auto commands = split_str(script, delimiter);
+	parsed_script.clear();
 
-	script_thread.reset(new ThreadController( [this, commands](ThreadController::stop_t stop) {
-		std::map<std::string, uint64_t> suffixes { {"s",1}, {"m",60} };
+	// test commands before initiating the thread
+	PRINT_DEBUG("testing commands");
+	for (auto c : commands) {
+		if (strip(c) == "") continue;
+		ScriptCommand c2(c);
+		parseCommand(c2.command, false);
+		parsed_script.push_back(c2);
+	}
 
-		auto time_ini = std::chrono::system_clock::now();
+	if (reset_time)
+		time_ini = std::chrono::system_clock::now();
+
+	// launch monitor thread
+	PRINT_DEBUG("launch monitor thread");
+	script_thread.reset(new ThreadController( [this](ThreadController::stop_t stop) {
+		auto time_ini = this->time_ini;
+
 		uint64_t time_elapsed;
-		for (auto c : commands) {
-			if (strip(c) == "") continue;
-			auto c2 = split_str(c, ":");
 
-			// parse time_command and cmd
-			uint64_t time_command = 0;
-			std::string cmd;
-			if (c2.size() == 1)
-				cmd = c2[0];
-			else {
-				cmd = c2[1];
-				try {
-					time_command = parseUint64Suffix(c2[0], suffixes);
-				} catch (...) {
-					throw std::runtime_error(sprintf("error parsing script time \"%s\"", c2[0].c_str()));
-				}
-			}
-
+		for (auto c : this->parsed_script) {
 			// whait until stop or time_command <= time_elapsed
 			while (!stop()) {
 				time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
 						std::chrono::system_clock::now() - time_ini ).count();
-				if (time_command <= time_elapsed) {
-					PRINT_DEBUG("time_command=%s, time_elapsed=%s, executind command \"%s\"", std::to_string(time_command).c_str(), std::to_string(time_elapsed).c_str(), cmd.c_str());
-					this->parseCommand(cmd);
+				if (c.time <= time_elapsed) {
+					PRINT_DEBUG("time_command=%s, time_elapsed=%s, executind command \"%s\"", std::to_string(c.time).c_str(), std::to_string(time_elapsed).c_str(), c.command.c_str());
+					this->parseCommand(c.command);
 					break;
 				}
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				std::this_thread::sleep_for(std::chrono::milliseconds(250));
 			}
 		}
 	} ) );
 }
 
-void Commands::parseCommand(const std::string& str) {
-	PRINT_DEBUG("str=\"%s\"", str.c_str());
+bool Commands::isScriptActive(bool throw_exception) {
+	if (script_thread.get() == nullptr)
+		return false;
+	return script_thread->isActive(throw_exception);
+}
+
+void Commands::parseCommand(const std::string& str, bool set_value) {
+	PRINT_DEBUG("str=\"%s\", set_value=%s", str.c_str(), std::to_string(set_value).c_str());
 	auto key_val = split_str(str, "=");
-	if (key_val.size() != 2)
+	if (key_val.size() > 2)
 		throw std::runtime_error(sprintf("invalid command format \"%s\"", str.c_str()));
 
-	PRINT_DEBUG("command=\"%s\", value=\"%s\"", key_val[0].c_str(), key_val[1].c_str());
+	std::string key = key_val[0];
+	std::string value = "";
+	if (key_val.size() >= 2)
+		value = key_val[1];
+
+	PRINT_DEBUG("command=\"%s\", value=\"%s\"", key.c_str(), value.c_str());
 	for (auto i : cmd_list) {
-		if (i->name == key_val[0]) {
-			i->set(key_val[1]);
+		if (i->name == key) {
+			if (set_value)
+				i->set(value);
+			else
+				i->test(value);
 			return;
 		}
 	}
-	throw std::runtime_error(sprintf("invalid command \"%s\"", key_val[0].c_str()));
+	throw std::runtime_error(sprintf("invalid command \"%s\"", key.c_str()));
 }
 
 void Commands::registerCmd( CmdBase* cmd ) {
