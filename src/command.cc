@@ -25,7 +25,7 @@ void CmdBase::set(const std::string& value){}
 #define __CLASS__ "CmdTemplate::"
 
 template <typename T>
-CmdTemplate<T>::CmdTemplate(const std::string& name, bool required, T default_, T* address, checker_t checker, handler_t handler):
+CmdTemplate<T>::CmdTemplate(const std::string& name, bool required, const T default_, T* address, checker_t checker, handler_t handler):
 	required(required), default_(default_), address(address), checker(checker), handler(handler)
 {
 	this->name = name;
@@ -58,6 +58,7 @@ template class CmdTemplate<int64_t>;
 template class CmdTemplate<uint32_t>;
 template class CmdTemplate<uint64_t>;
 template class CmdTemplate<double>;
+template class CmdTemplate<std::string>;
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__

@@ -333,8 +333,8 @@ bool ProcessController::checkStatus() noexcept {
 
 
 ThreadController::ThreadController(main_t main) {
-	_active.store(true);
-	_stop.store(false);
+	_active = true;
+	_stop   = false;
 	thread = std::thread( [this, main]{this->run(main);} );
 }
 
@@ -348,7 +348,7 @@ ThreadController::~ThreadController() {
 
 void ThreadController::stop() {
 	PRINT_DEBUG("set _stop=true");
-	_stop.store(true);
+	_stop = true;
 }
 
 bool ThreadController::isActive(bool throw_exception) {
@@ -362,19 +362,19 @@ bool ThreadController::isActive(bool throw_exception) {
 			}
 		}
 	}
-	return _active.load();
+	return _active;
 }
 
 void ThreadController::run(main_t main) noexcept {
 	try {
 		PRINT_DEBUG("initiating thread function");
-		main([this]()->bool{return this->_stop.load();});
+		main([this]()->bool{return this->_stop;});
 	} catch(std::exception& e) {
 		PRINT_DEBUG("exception received: %s", e.what());
 		thread_exception = std::current_exception();
 	}
 	PRINT_DEBUG("thread function finished");
-	_active.store(false);
+	_active = false;
 }
 
 } // namespace alutils

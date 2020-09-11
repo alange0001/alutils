@@ -74,8 +74,8 @@ class ProcessController {
 #define __CLASS__ "ThreadController::"
 
 class ThreadController {
-	std::atomic<bool>  _active = false;
-	std::atomic<bool>  _stop = false;
+	bool               _active = false;
+	bool               _stop = false;
 	std::thread        thread;
 	std::exception_ptr thread_exception;
 

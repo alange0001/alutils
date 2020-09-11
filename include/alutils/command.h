@@ -35,18 +35,19 @@ struct CmdTemplate : public CmdBase {
 	T*        address = nullptr;
 	checker_t checker = nullptr;
 	handler_t handler = nullptr;
-	CmdTemplate(const std::string& name, bool required=true, T default_=(T)0, T* address=nullptr, checker_t checker=nullptr, handler_t handler=nullptr);
+	CmdTemplate(const std::string& name, bool required=true, const T default_=(T)0, T* address=nullptr, checker_t checker=nullptr, handler_t handler=nullptr);
 	virtual ~CmdTemplate();
 	void test(const std::string& value) override;
 	void set(const std::string& value) override;
 };
 
-typedef CmdTemplate<bool>     CmdBool;
-typedef CmdTemplate<int32_t>  CmdInt32;
-typedef CmdTemplate<int64_t>  CmdInt64;
-typedef CmdTemplate<uint32_t> CmdUint32;
-typedef CmdTemplate<uint64_t> CmdUint64;
-typedef CmdTemplate<double>   CmdDouble;
+typedef CmdTemplate<bool>        CmdBool;
+typedef CmdTemplate<int32_t>     CmdInt32;
+typedef CmdTemplate<int64_t>     CmdInt64;
+typedef CmdTemplate<uint32_t>    CmdUint32;
+typedef CmdTemplate<uint64_t>    CmdUint64;
+typedef CmdTemplate<double>      CmdDouble;
+typedef CmdTemplate<std::string> CmdString;
 
 
 ////////////////////////////////////////////////////////////////////////////////////

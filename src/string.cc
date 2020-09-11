@@ -125,13 +125,14 @@ template<> inline uint32_t stoT<uint32_t>(const std::string& value) { return std
 template<> inline uint64_t stoT<uint64_t>(const std::string& value) { return std::stoull(value); }
 template<> inline double   stoT<double>  (const std::string& value) { return std::stod(value);   }
 
-template<typename T> constexpr const char* get_type_name() { throw std::runtime_error("not implemented"); }
-template<> constexpr const char* get_type_name<bool>()     { return "boolean"; }
-template<> constexpr const char* get_type_name<int32_t>()  { return "int32";   }
-template<> constexpr const char* get_type_name<int64_t>()  { return "int64";   }
-template<> constexpr const char* get_type_name<uint32_t>() { return "uint32";  }
-template<> constexpr const char* get_type_name<uint64_t>() { return "uint64";  }
-template<> constexpr const char* get_type_name<double>()   { return "double";  }
+template<typename T> constexpr const char* get_type_name()    { throw std::runtime_error("not implemented"); }
+template<> constexpr const char* get_type_name<bool>()        { return "boolean"; }
+template<> constexpr const char* get_type_name<int32_t>()     { return "int32";   }
+template<> constexpr const char* get_type_name<int64_t>()     { return "int64";   }
+template<> constexpr const char* get_type_name<uint32_t>()    { return "uint32";  }
+template<> constexpr const char* get_type_name<uint64_t>()    { return "uint64";  }
+template<> constexpr const char* get_type_name<double>()      { return "double";  }
+template<> constexpr const char* get_type_name<std::string>() { return "string";  }
 
 static const char* get_parse_error(std::string& dest, const char* error_msg, const std::string& value, const char* type) {
 	if (error_msg != nullptr)
@@ -182,6 +183,24 @@ DECLARE_PARSE(int64_t);
 DECLARE_PARSE(uint32_t);
 DECLARE_PARSE(uint64_t);
 DECLARE_PARSE(double);
+
+template<> std::string parse<std::string>(const std::string &value, const bool required,  \
+                              const std::string default_, const char* error_msg,     \
+                              std::function<bool(std::string)> check_method)
+{
+	std::string error_buffer;
+	std::string ret = value;
+
+	if (required && ret == "")
+		throw std::invalid_argument(get_parse_error(error_buffer, error_msg, ret, get_type_name<std::string>()));
+
+	if (ret == "")
+		ret = default_;
+
+	if (check_method != nullptr && !check_method(ret))
+		throw std::invalid_argument(get_parse_error(error_buffer, error_msg, ret, get_type_name<std::string>()));
+	return ret;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 bool debug_parseSuffix = false;
