@@ -40,11 +40,13 @@ CmdTemplate<T>::~CmdTemplate(){
 
 template <typename T>
 void CmdTemplate<T>::test(const std::string& value) {
+	PRINT_DEBUG("test command=\"%s\", value=\"%s\"", name.c_str(), value.c_str());
 	parse<T>(value, required, default_, sprintf("test failed for the command \"%s\" value \"%s\"", name.c_str(), value.c_str()).c_str(), checker);
 }
 
 template <typename T>
 void CmdTemplate<T>::set(const std::string& value) {
+	PRINT_DEBUG("set command=\"%s\", value=\"%s\"", name.c_str(), value.c_str());
 	T aux = parse<T>(value, required, default_, sprintf("invalid value for the command \"%s\": \"%s\"", name.c_str(), value.c_str()).c_str(), checker);
 	if (address)
 		*address = aux;
@@ -99,13 +101,17 @@ Commands::~Commands() {
 	PRINT_DEBUG("destructor end");
 }
 
-void Commands::monitorScript(const std::string& script, const std::string& delimiter, bool reset_time) {
-	PRINT_DEBUG("script=\"%s\", delimiter=\"%s\"", script.c_str(), delimiter.c_str());
+void Commands::setScriptDelimiter(const std::string& delimiter) {
+	script_delimiter = delimiter;
+}
+
+void Commands::monitorScript(const std::string& script, bool reset_time) {
+	PRINT_DEBUG("script=\"%s\", delimiter=\"%s\"", script.c_str(), script_delimiter.c_str());
 	if (script_thread.get() != nullptr && script_thread->isActive(false))
 		throw std::runtime_error("monitorScript is already active");
 
 	script_thread.reset(nullptr);
-	auto commands = split_str(script, delimiter);
+	auto commands = split_str(script, script_delimiter);
 	parsed_script.clear();
 
 	// test commands before initiating the thread
@@ -163,10 +169,13 @@ void Commands::parseCommand(const std::string& str, bool set_value) {
 	PRINT_DEBUG("command=\"%s\", value=\"%s\"", key.c_str(), value.c_str());
 	for (auto i : cmd_list) {
 		if (i->name == key) {
-			if (set_value)
+			if (set_value) {
 				i->set(value);
-			else
+				if (afterChange != nullptr)
+					afterChange(this, key, value);
+			} else {
 				i->test(value);
+			}
 			return;
 		}
 	}

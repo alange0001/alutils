@@ -65,15 +65,19 @@ class Commands {
 	std::vector<CmdBase*> cmd_list;
 
 	// script variables
+	std::string                           script_delimiter = ";";
 	std::chrono::system_clock::time_point time_ini;
 	std::vector<ScriptCommand>            parsed_script;
 	std::unique_ptr<ThreadController>     script_thread;
 
 	public:
+	std::function<void(Commands* /*this*/, const std::string&/*command*/, const std::string&/*value*/)> afterChange = nullptr;
+
 	Commands();
 	~Commands();
 
-	void monitorScript(const std::string& script, const std::string& delimiter=";", bool reset_time=false);
+	void setScriptDelimiter(const std::string& delimiter);
+	void monitorScript(const std::string& script, bool reset_time=false);
 	bool isScriptActive(bool throw_exception=true);
 
 	void parseCommand(const std::string& str, bool set_value=true);
