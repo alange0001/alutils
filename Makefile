@@ -18,7 +18,10 @@ process-test: all
 command-test: all
 	build/test/command-test
 
-test: string-test print-test process-test command-test
+random-test: all
+	build/test/random-test
+
+test: string-test print-test process-test command-test random-test
 
 clean:
 	cd build && make clean

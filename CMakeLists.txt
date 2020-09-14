@@ -8,12 +8,13 @@ set(WORKSPACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 list(APPEND THIRDPARTY_LIBS pthread)
 list(APPEND THIRDPARTY_LIBS dl)
+list(APPEND THIRDPARTY_LIBS m)
 
 #################################################################
 
 include_directories("${PROJECT_DIR}/include")
 
-add_library(alutils src/string.cc src/print.cc src/process.cc src/command.cc)
+add_library(alutils src/string.cc src/print.cc src/process.cc src/command.cc src/random.cc)
 target_link_libraries(alutils ${THIRDPARTY_LIBS})
 set_property(TARGET alutils PROPERTY CXX_STANDARD 17)
 
