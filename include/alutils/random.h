@@ -11,6 +11,8 @@
 
 namespace alutils {
 
+class RandEngine {};
+
 // Implementation based on:
 // J. Gray, et al. “Quickly generating billion-record synthetic databases,”
 // in Proceedings of ACM SIGMOD 1994.
@@ -26,9 +28,12 @@ class ZipfDistribution {
 	double eta;
 	double zeta(T n, double theta);
 
+	std::unique_ptr<RandEngine> default_rand_engine;
+
 	public:
 	ZipfDistribution(T n, double theta);
-	T next();
+	T next(RandEngine* rand_engine=nullptr);
+	RandEngine* newEngine(); // use one engine per thread
 };
 
 typedef ZipfDistribution<int32_t> ZipfDistributionUint32;
@@ -39,12 +44,14 @@ class ScrambledZipfDistribution {
 	T              n;
 	T              sample_size;
 	std::vector<T> sample_list;
+
 	std::unique_ptr<ZipfDistribution<T>> zipf;
-	std::uniform_int_distribution<T>     rand_uniform_keys;
+	std::unique_ptr<RandEngine>          default_rand_engine;
 
 	public:
 	ScrambledZipfDistribution(T n, T sample_size, double theta);
-	T next();
+	T next(RandEngine* rand_engine=nullptr);
+	RandEngine* newEngine(); // use one engine per thread
 };
 
 typedef ScrambledZipfDistribution<int32_t> ScrambledZipfDistributionUint32;
