@@ -90,11 +90,13 @@ ZipfDistribution<T>::ZipfDistribution(T n, double theta): n(n), theta(theta) {
 template <typename T>
 T ZipfDistribution<T>::next(RandEngine* rand_engine) {
 	T ret;
-	auto rand_engine_impl = reinterpret_cast<RandEngineImpl<T>*>(default_rand_engine.get());
-	if (rand_engine != nullptr)
-		rand_engine_impl = reinterpret_cast<RandEngineImpl<T>*>(rand_engine);
+	double u;
 
-	double u = rand_engine_impl->uniform_01();
+	if (rand_engine != nullptr)
+		u = reinterpret_cast<RandEngineImpl<T>*>(rand_engine)->uniform_01();
+	else
+		u = reinterpret_cast<RandEngineImpl<T>*>(default_rand_engine.get())->uniform_01();
+
 	double uz = u * zeta_n;
 
 	if (uz < 1.0)
@@ -138,14 +140,14 @@ ScrambledZipfDistribution<T>::ScrambledZipfDistribution(T n, T sample_size, doub
 
 template <typename T>
 T ScrambledZipfDistribution<T>::next(RandEngine* rand_engine) {
-	auto rand_engine_impl = reinterpret_cast<RandEngineImpl<T>*>(default_rand_engine.get());
-	if (rand_engine != nullptr)
-		rand_engine_impl = reinterpret_cast<RandEngineImpl<T>*>(rand_engine);
-
 	auto r = zipf->next(rand_engine);
 	if (r <= sample_size)
 		return sample_list[r-1];
-	return rand_engine_impl->uniform_keys();
+
+	if (rand_engine != nullptr)
+		return reinterpret_cast<RandEngineImpl<T>*>(rand_engine)->uniform_keys();
+	else
+		return reinterpret_cast<RandEngineImpl<T>*>(default_rand_engine.get())->uniform_keys();
 }
 
 template <typename T>
