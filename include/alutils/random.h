@@ -11,7 +11,11 @@
 
 namespace alutils {
 
+////////////////////////////////////////////////////////////////////////////////////
+
 class RandEngine {};
+
+////////////////////////////////////////////////////////////////////////////////////
 
 // Implementation based on:
 // J. Gray, et al. “Quickly generating billion-record synthetic databases,”
@@ -38,6 +42,8 @@ class ZipfDistribution {
 
 typedef ZipfDistribution<int32_t> ZipfDistributionUint32;
 typedef ZipfDistribution<int64_t> ZipfDistributionUint64;
+
+////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
 class ScrambledZipfDistribution {
