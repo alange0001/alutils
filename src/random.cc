@@ -23,6 +23,7 @@ namespace alutils {
 
 template <typename T>
 class RandEngineImpl : public RandEngine {
+	T               n;
 	std::mt19937_64 reng;
 	std::uniform_real_distribution<double> uniform_01_;    // both classes
 	std::uniform_int_distribution<T>       uniform_keys_;  // class ScrambledZipfDistribution
@@ -35,13 +36,20 @@ class RandEngineImpl : public RandEngine {
 	}
 
 	public:
-	RandEngineImpl() { setSeed(); }
-	RandEngineImpl(T n) {
+	RandEngineImpl() {
+		n = 0;
+		setSeed();
+	}
+	RandEngineImpl(T n): n(n) {
+		assert( n > 1 );
 		setSeed();
 		uniform_keys_ = std::uniform_int_distribution<T>(1, n);
 	}
 	double uniform_01()   { return uniform_01_(reng); }
-	double uniform_keys() { return uniform_keys_(reng); }
+	double uniform_keys() {
+		assert( n > 0 );
+		return uniform_keys_(reng);
+	}
 };
 
 ////////////////////////////////////////////////////////////////////////////////////
