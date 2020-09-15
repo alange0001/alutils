@@ -17,37 +17,56 @@ using namespace alutils;
 
 #define v2s(val) std::to_string(val).c_str()
 
-
 int main(int argc, char** argv) {
 	printf("\n\n");
 	printf("=====================\n");
 	printf("random-test:\n");
 	log_level = LOG_DEBUG_OUT;
 
-	const uint64_t n_items = 1000000;
-	uint64_t items[n_items];
-	for (uint64_t i=0; i<n_items; i++)
-		items[i]=0;
+	{
+		const uint64_t n_items = 1000000;
+		uint64_t items[n_items];
 
-	zipf_distribution zipf(n_items, 0.99);
-	for (uint64_t i=1; i<100000000; i++) {
-		auto r = zipf.next();
-		items[r-1]++;
-	}
-
-	for (uint64_t i=1; i<=10; i++) {
-		printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
-	}
-	if (n_items >=20) for (uint64_t i=n_items-10; i<=n_items; i++) {
-		printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
-	}
-
-	/*for (uint64_t i=2; i<=n_items; i++) {
-		if (items[i-2]*2.0 < items[i-1]*1.0) {
-			printf("possible inconsistent distribution: items[%s]=%s, items[%s]=%s\n", v2s(i-2), v2s(items[i-2]), v2s(i-1), v2s(items[i-1]));
+		ZipfDistributionUint64 zipf(n_items, 0.99);
+		for (uint64_t i=0; i<n_items; i++)
+			items[i]=0;
+		for (uint64_t i=1; i<10000000; i++) {
+			auto r = zipf.next();
+			items[r-1]++;
 		}
-	}*/
+		for (uint64_t i=1; i<=10; i++) {
+			printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
+		}
+		if (n_items >=20) for (uint64_t i=n_items-10; i<=n_items; i++) {
+			printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
+		}
 
+		/*for (uint64_t i=2; i<=n_items; i++) {
+			if (items[i-2]*2.0 < items[i-1]*1.0) {
+				printf("possible inconsistent distribution: items[%s]=%s, items[%s]=%s\n", v2s(i-2), v2s(items[i-2]), v2s(i-1), v2s(items[i-1]));
+			}
+		}*/
+	}
+
+
+	{
+		const uint64_t n_items = 100;
+		const uint64_t samples = 10000;
+		uint64_t items[n_items];
+
+		printf("\nScrambled\n");
+		ScrambledZipfDistributionUint64 szipf(n_items, 20, 0.99);
+		for (uint64_t i=0; i<n_items; i++)
+			items[i]=0;
+		for (uint64_t i=1; i<samples; i++) {
+			auto r = szipf.next();
+			items[r-1]++;
+		}
+		for (uint64_t i=1; i<=n_items; i++) {
+			if (items[i-1] > samples/40)
+				printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
+		}
+	}
 
 	printf("OK!!\n");
 	return 0;

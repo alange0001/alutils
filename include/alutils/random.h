@@ -5,23 +5,49 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+#include <random>
+
 namespace alutils {
 
 // Implementation based on:
 // J. Gray, et al. “Quickly generating billion-record synthetic databases,”
 // in Proceedings of ACM SIGMOD 1994.
-class zipf_distribution {
-	uint64_t n;
+// and
+// https://github.com/brianfrankcooper/YCSB/blob/master/core/src/main/java/site/ycsb/generator/ZipfianGenerator.java
+template <typename T>
+class ZipfDistribution {
+	T      n;
 	double theta;
 	double alpha;
 	double zeta_n;
 	double zeta_theta;
 	double eta;
-	double zeta(double n, double theta);
+	double zeta(T n, double theta);
 
 	public:
-	zipf_distribution(uint64_t n, double theta);
-	uint64_t next();
+	ZipfDistribution(T n, double theta);
+	T next();
 };
+
+typedef ZipfDistribution<int32_t> ZipfDistributionUint32;
+typedef ZipfDistribution<int64_t> ZipfDistributionUint64;
+
+template <typename T>
+class ScrambledZipfDistribution {
+	T              n;
+	T              sample_size;
+	std::vector<T> sample_list;
+	std::unique_ptr<ZipfDistribution<T>> zipf;
+	std::uniform_int_distribution<T>     rand_uniform_keys;
+
+	public:
+	ScrambledZipfDistribution(T n, T sample_size, double theta);
+	T next();
+};
+
+typedef ScrambledZipfDistribution<int32_t> ScrambledZipfDistributionUint32;
+typedef ScrambledZipfDistribution<int64_t> ScrambledZipfDistributionUint64;
 
 } // namespace alutils
