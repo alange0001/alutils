@@ -126,10 +126,10 @@ template class ZipfDistribution<int64_t>;
 
 template <typename T>
 ScrambledZipfDistribution<T>::ScrambledZipfDistribution(T n, T sample_size, double theta): n(n), sample_size(sample_size) {
-	assert(sample_size > 0 && sample_size <= n);
 	PRINT_DEBUG("n           = %s", v2s(n));
 	PRINT_DEBUG("sample_size = %s", v2s(sample_size));
 	PRINT_DEBUG("theta       = %s", v2s(theta));
+	assert(sample_size > 0 && sample_size <= n);
 
 	auto rand_engine_impl = new RandEngineImpl<T>(n);
 	default_rand_engine.reset(rand_engine_impl);
