@@ -7,9 +7,10 @@
 #include "alutils/internal.h"
 #include "alutils/random.h"
 
-#include <cassert>
-#include <unistd.h>
+#include <set>
+#include <algorithm>
 #include <chrono>
+#include <cassert>
 
 namespace alutils {
 
@@ -23,8 +24,7 @@ namespace alutils {
 
 template <typename T>
 class RandEngineImpl : public RandEngine {
-	T               n;
-	std::mt19937_64 reng;
+	T n;
 	std::uniform_real_distribution<double> uniform_01_;    // both classes
 	std::uniform_int_distribution<T>       uniform_keys_;  // class ScrambledZipfDistribution
 
@@ -36,6 +36,7 @@ class RandEngineImpl : public RandEngine {
 	}
 
 	public:
+	std::mt19937_64 reng;
 	RandEngineImpl() {
 		n = 0;
 		setSeed();
@@ -126,14 +127,29 @@ template class ZipfDistribution<int64_t>;
 template <typename T>
 ScrambledZipfDistribution<T>::ScrambledZipfDistribution(T n, T sample_size, double theta): n(n), sample_size(sample_size) {
 	assert(sample_size > 0 && sample_size <= n);
+	PRINT_DEBUG("n           = %s", v2s(n));
+	PRINT_DEBUG("sample_size = %s", v2s(sample_size));
+	PRINT_DEBUG("theta       = %s", v2s(theta));
 
 	auto rand_engine_impl = new RandEngineImpl<T>(n);
 	default_rand_engine.reset(rand_engine_impl);
 
 	zipf.reset(new ZipfDistribution<T>(n, theta));
 
-	for (T i=0; i<sample_size; i++)
-		sample_list.push_back(rand_engine_impl->uniform_keys());
+	if (sample_size <= (T)((double)n*0.8)) {
+		std::set<T> used_keys;
+		while (used_keys.size() <= sample_size) {
+			auto key = rand_engine_impl->uniform_keys();
+			if (used_keys.count(key) == 0) {
+				used_keys.insert(key);
+				sample_list.push_back(key);
+			}
+		}
+	} else {
+		for ( T i = 1; i<=n; i++)
+			sample_list.push_back(i);
+		std::shuffle(sample_list.begin(), sample_list.end(), rand_engine_impl->reng);
+	}
 
 	PRINT_DEBUG("sample_list size: %s", v2s(sample_size * sizeof(sample_size)));
 }

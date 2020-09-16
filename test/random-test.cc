@@ -50,12 +50,29 @@ int main(int argc, char** argv) {
 
 
 	{
+		printf("\nScrambled 100%%\n");
 		const uint64_t n_items = 100;
 		const uint64_t samples = 10000;
 		uint64_t items[n_items];
 
-		printf("\nScrambled\n");
-		ScrambledZipfDistributionUint64 szipf(n_items, 20, 0.99);
+		ScrambledZipfDistributionUint64 szipf(n_items, n_items, 0.99);
+		for (uint64_t i=0; i<n_items; i++)
+			items[i]=0;
+		for (uint64_t i=1; i<samples; i++) {
+			auto r = szipf.next();
+			items[r-1]++;
+		}
+		for (uint64_t i=1; i<=n_items; i++) {
+			if (items[i-1] > samples/40)
+				printf("items[%s] = %s\n", v2s(i), v2s(items[i-1]));
+		}
+	}{
+		printf("\nScrambled 20%%\n");
+		const uint64_t n_items = 100;
+		const uint64_t samples = 10000;
+		uint64_t items[n_items];
+
+		ScrambledZipfDistributionUint64 szipf(n_items, n_items/5, 0.99);
 		for (uint64_t i=0; i<n_items; i++)
 			items[i]=0;
 		for (uint64_t i=1; i<samples; i++) {
