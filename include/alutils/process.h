@@ -65,6 +65,7 @@ class ProcessController {
 	int  exit_code      = 0;
 	int  signal         = 0;
 
+	static void null_handler(const char* v) {}
 	static void default_stderr_handler(const char* v) { std::fputs(v, stderr); }
 	static void default_stdout_handler(const char* v) { std::fputs(v, stdout); }
 };

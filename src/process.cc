@@ -178,30 +178,38 @@ ProcessController::ProcessController(const char* name_, const char* cmd,
 ProcessController::~ProcessController() {
 	PRINT_DEBUG("destructor");
 
-	must_stop = true;
-
+	PRINT_DEBUG("check status");
 	if (checkStatus()) {
+		PRINT_WARN("process %s (pid %s) still active. kill it", name.c_str(), _var2str(pid));
+		kill(pid, SIGTERM);
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		if (checkStatus()) {
-			PRINT_WARN("process %s (pid %s) still active. kill it", name.c_str(), _var2str(pid));
-			auto children = get_children(pid);
-			for (auto i: children) {
-				PRINT_WARN("child (pid %s) of process %s (pid %s) still active. kill it", _var2str(i), name.c_str(), _var2str(pid));
-				kill(i, SIGTERM);
-			}
-			kill(pid, SIGTERM);
+		auto children = get_children(pid);
+		for (auto i: children) {
+			PRINT_WARN("child (pid %s) of process %s (pid %s) still active. kill it", _var2str(i), name.c_str(), _var2str(pid));
+			kill(i, SIGTERM);
 		}
 	}
 
+	PRINT_DEBUG("set handlers to null_handler");
+	handler_stdout = null_handler;
+	handler_stderr = null_handler;
+	
+	PRINT_DEBUG("set must_stop");
+	must_stop = true;
+	std::this_thread::sleep_for(std::chrono::milliseconds(120));
+
+	PRINT_DEBUG("join thread stdout");
+	if (thread_stdout.joinable())
+		thread_stdout.join();
+	PRINT_DEBUG("join thread stderr");
+	if (thread_stderr.joinable())
+		thread_stderr.join();
+	
+	PRINT_DEBUG("closing files");
 	auto status_f_stdin = std::fclose(f_stdin);
 	auto status_f_stdout = std::fclose(f_stdout);
 	auto status_f_stderr = std::fclose(f_stderr);
 	PRINT_DEBUG("status_f_stdin=%s, status_f_stdout=%s, status_f_stderr=%s", _var2str(status_f_stdin), _var2str(status_f_stdout), _var2str(status_f_stderr));
-
-	if (thread_stdout.joinable())
-		thread_stdout.join();
-	if (thread_stderr.joinable())
-		thread_stderr.join();
 
 	PRINT_DEBUG("destructor finished");
 }
@@ -248,7 +256,10 @@ void ProcessController::threadStdout() noexcept {
 	char buffer[buffer_size]; buffer[0] = '\0'; buffer[buffer_size -1] = '\0';
 
 	try {
-		while (!must_stop && std::fgets(buffer, buffer_size -1, f_stdout) != NULL) {
+		//while (!must_stop && std::fgets(buffer, buffer_size -1, f_stdout) != NULL) {
+		while (monitor_fgets(buffer, buffer_size -1, f_stdout, &must_stop, 100)) {
+			if (must_stop)
+				break;
 			if (log_level <= LOG_DEBUG_OUT) {
 				std::string aux = str_replace(buffer, '\n', ' ');
 				PRINT_DEBUG_OUT("stdout line: %s", aux.c_str());
@@ -271,7 +282,10 @@ void ProcessController::threadStderr() noexcept {
 	char buffer[buffer_size]; buffer[0] = '\0'; buffer[buffer_size -1] = '\0';
 
 	try {
-		while (!must_stop && std::fgets(buffer, buffer_size -1, f_stderr) != NULL) {
+		//while (!must_stop && std::fgets(buffer, buffer_size -1, f_stderr) != NULL) {
+		while (monitor_fgets(buffer, buffer_size -1, f_stderr, &must_stop, 100)) {
+			if (must_stop)
+				break;
 			if (log_level <= LOG_DEBUG_OUT) {
 				std::string aux = str_replace(buffer, '\n', ' ');
 				PRINT_DEBUG_OUT("stderr line: %s", aux.c_str());

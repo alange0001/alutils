@@ -41,18 +41,23 @@ int main(int argc, char** argv) {
 
 		auto out = command_output("ls / |head -n 3");
 
-		ProcessController proc(
-					"ping",
-					"ping 127.0.0.1 -c 1");
-		while (proc.isActive()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		printf("----------------\nTest: ProcessController 1:\n");
+		{
+			ProcessController proc(
+						"ping",
+						"ping 127.0.0.1 -c 1");
+			while (proc.isActive()) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+			}
 		}
 
+		printf("----------------\nTest: ThreadController 1:\n");
 		ThreadController thread(thread_test);
 		while (thread.isActive()) {
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 			thread.stop();
 		}
+		printf("----------------\nTest: ThreadController 2:\n");
 		ThreadController thread2(thread_test2);
 		try {
 			while (thread2.isActive()) {

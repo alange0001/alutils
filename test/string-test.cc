@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <cassert>
+#include <iostream>
+#include <sstream>
 
 using namespace alutils;
 
@@ -133,6 +135,14 @@ int main(int argc, char** argv) {
 		assert (!fail);
 		try {str="5.5s"; dv = parseDoubleSuffix(str.c_str(), dsuf); fail = true;} catch (std::exception& e) {printf("expected exception for \"%s\": %s\n", str.c_str(), e.what());}
 		assert (!fail);
+	}
+
+	{
+		std::stringstream stream("123; 324 ; abc");
+		std::string s;
+		while (std::getline(stream, s, ';')) {
+			printf("%s\n", inplace_strip(s).c_str());
+		}
 	}
 
 	printf("OK!!\n");
