@@ -6,6 +6,7 @@
 #include "alutils/print.h"
 #include "alutils/internal.h"
 #include "alutils/socket.h"
+#include "alutils/string.h"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -25,18 +26,18 @@ SocketServer::SocketServer(const std::string& name, handler_t handler) : name(na
 	sockaddr_un s_name;
 
 	if (name.length() > sizeof(s_name.sun_path)-1)
-		throw std::runtime_error("socket name exceeds the maximum size");
+		throw std::runtime_error(sprintf("socket name exceeds the maximum size of %s bytes (%s)", v2s(sizeof(s_name.sun_path)), name.c_str()).c_str());
 
 	sock = socket(PF_LOCAL, SOCK_DGRAM, 0);
 	if (sock < 0)
-		throw std::runtime_error("failed to create socket");
+		throw std::runtime_error(sprintf("failed to create socket (%s)", name.c_str()).c_str());
 
 	s_name.sun_family = AF_UNIX;
 	strncpy(s_name.sun_path, name.c_str(), sizeof(s_name.sun_path) -1);
 	s_name.sun_path[sizeof(s_name.sun_path) -1] = '\0';
 
 	if (bind(sock, (struct sockaddr *) &s_name, sizeof(sockaddr_un)) < 0)
-		throw std::runtime_error("failed to bind the socket name");
+		throw std::runtime_error(sprintf("failed to bind the socket name (%s)", name.c_str()).c_str());
 
 	thread = std::thread([this]()->void {this->thread_main();});
 }
