@@ -21,8 +21,6 @@
 
 namespace alutils {
 
-#define _var2str(var) std::to_string(var).c_str()
-
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
 #define __CLASS__ ""
@@ -31,7 +29,7 @@ bool monitor_fgets (char* buffer, int buffer_size, std::FILE* file, bool* stop, 
 	struct timeval timeout {0,0};
 
 	auto fd = fileno(file);
-	PRINT_DEBUG("fd=%s", _var2str(fd));
+	PRINT_DEBUG("fd=%s", v2s(fd));
 	fd_set readfds;
 	FD_ZERO(&readfds);
 
@@ -79,14 +77,14 @@ std::string command_output(const char* cmd) {
 
 	auto exit_code = pclose(f);
 	if (exit_code != 0)
-		throw std::runtime_error(sprintf("command \"%s\" returned error %s", cmd, _var2str(exit_code)));
+		throw std::runtime_error(sprintf("command \"%s\" returned error %s", cmd, v2s(exit_code)));
 
 	return ret;
 }
 
 std::vector<pid_t> get_children(pid_t parent_pid) {
 	std::vector<pid_t> ret;
-	PRINT_DEBUG("parent pid: %s", _var2str(parent_pid));
+	PRINT_DEBUG("parent pid: %s", v2s(parent_pid));
 	try {
 		std::string cmd = sprintf(
 			"getcpid() {                        \n"
@@ -97,7 +95,7 @@ std::vector<pid_t> get_children(pid_t parent_pid) {
 			"        getcpid $cpid              \n"
 			"    done                           \n"
 			"}                                  \n"
-			"getcpid %s |xargs", _var2str(parent_pid));
+			"getcpid %s |xargs", v2s(parent_pid));
 		auto children = command_output(cmd.c_str());
 		PRINT_DEBUG("children: %s", children.c_str());
 		auto pids = split_str(children, " ");
@@ -130,13 +128,13 @@ ProcessController::ProcessController(const char* name_, const char* cmd,
 	pid_t child_pid;
 	int pipe_stdin[2];
 	pipe(pipe_stdin);
-	PRINT_DEBUG("pipe_stdin=(%s, %s)", _var2str(pipe_stdin[0]), _var2str(pipe_stdin[1]));
+	PRINT_DEBUG("pipe_stdin=(%s, %s)", v2s(pipe_stdin[0]), v2s(pipe_stdin[1]));
 	int pipe_stdout[2];
 	pipe(pipe_stdout);
-	PRINT_DEBUG("pipe_stdout=(%s, %s)", _var2str(pipe_stdout[0]), _var2str(pipe_stdout[1]));
+	PRINT_DEBUG("pipe_stdout=(%s, %s)", v2s(pipe_stdout[0]), v2s(pipe_stdout[1]));
 	int pipe_stderr[2];
 	pipe(pipe_stderr);
-	PRINT_DEBUG("pipe_stderr=(%s, %s)", _var2str(pipe_stderr[0]), _var2str(pipe_stderr[1]));
+	PRINT_DEBUG("pipe_stderr=(%s, %s)", v2s(pipe_stderr[0]), v2s(pipe_stderr[1]));
 
 	if ((child_pid = fork()) == -1)
 		throw std::runtime_error(std::string("fork error on process ")+name);
@@ -156,7 +154,7 @@ ProcessController::ProcessController(const char* name_, const char* cmd,
 
 	program_active = true;
 
-	PRINT_DEBUG("child pid=%s", _var2str(child_pid));
+	PRINT_DEBUG("child pid=%s", v2s(child_pid));
 	pid   = child_pid;
 	close(pipe_stdin[0]);
 	if ((f_stdin  = fdopen(pipe_stdin[1], "w")) == NULL)
@@ -180,12 +178,12 @@ ProcessController::~ProcessController() {
 
 	PRINT_DEBUG("check status");
 	if (checkStatus()) {
-		PRINT_WARN("process %s (pid %s) still active. kill it", name.c_str(), _var2str(pid));
+		PRINT_WARN("process %s (pid %s) still active. kill it", name.c_str(), v2s(pid));
 		kill(pid, SIGTERM);
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		auto children = get_children(pid);
 		for (auto i: children) {
-			PRINT_WARN("child (pid %s) of process %s (pid %s) still active. kill it", _var2str(i), name.c_str(), _var2str(pid));
+			PRINT_WARN("child (pid %s) of process %s (pid %s) still active. kill it", v2s(i), name.c_str(), v2s(pid));
 			kill(i, SIGTERM);
 		}
 	}
@@ -209,7 +207,7 @@ ProcessController::~ProcessController() {
 	auto status_f_stdin = std::fclose(f_stdin);
 	auto status_f_stdout = std::fclose(f_stdout);
 	auto status_f_stderr = std::fclose(f_stderr);
-	PRINT_DEBUG("status_f_stdin=%s, status_f_stdout=%s, status_f_stderr=%s", _var2str(status_f_stdin), _var2str(status_f_stdout), _var2str(status_f_stderr));
+	PRINT_DEBUG("status_f_stdin=%s, status_f_stdout=%s, status_f_stderr=%s", v2s(status_f_stdin), v2s(status_f_stdout), v2s(status_f_stderr));
 
 	PRINT_DEBUG("destructor finished");
 }
@@ -228,9 +226,9 @@ bool ProcessController::isActive(bool throwexcept) {
 	bool aux_status = checkStatus();
 	if (throwexcept && !aux_status) {
 		if (exit_code != 0)
-			throw std::runtime_error(sprintf("program %s exit code %s", name.c_str(), _var2str(exit_code)));
+			throw std::runtime_error(sprintf("program %s exit code %s", name.c_str(), v2s(exit_code)));
 		if (signal != 0)
-			throw std::runtime_error(sprintf("program %s exit with signal %s", name.c_str(), _var2str(signal)));
+			throw std::runtime_error(sprintf("program %s exit with signal %s", name.c_str(), v2s(signal)));
 	}
 	return thread_stdout_active && thread_stderr_active && aux_status;
 }
@@ -249,7 +247,7 @@ bool ProcessController::puts(const std::string value) noexcept {
 }
 
 void ProcessController::threadStdout() noexcept {
-	PRINT_DEBUG("initiated for process %s (pid %s)", name.c_str(), _var2str(pid));
+	PRINT_DEBUG("initiated for process %s (pid %s)", name.c_str(), v2s(pid));
 	thread_stdout_active = true;
 
 	const uint buffer_size = 1024;
@@ -275,7 +273,7 @@ void ProcessController::threadStdout() noexcept {
 }
 
 void ProcessController::threadStderr() noexcept {
-	PRINT_DEBUG("initiated for process %s (pid %s)", name.c_str(), _var2str(pid));
+	PRINT_DEBUG("initiated for process %s (pid %s)", name.c_str(), v2s(pid));
 	thread_stderr_active = true;
 
 	const uint buffer_size = 1024;
@@ -301,7 +299,7 @@ void ProcessController::threadStderr() noexcept {
 }
 
 bool ProcessController::checkStatus() noexcept {
-	//PRINT_DEBUG("check status of process %s (pid %s)", name.c_str(), _var2str(pid));
+	//PRINT_DEBUG("check status of process %s (pid %s)", name.c_str(), v2s(pid));
 	int status;
 
 	if (!program_active)
@@ -312,13 +310,13 @@ bool ProcessController::checkStatus() noexcept {
 		return true;
 	if (w == -1) {
 		program_active = false;
-		PRINT_CRITICAL("waitpid error for process %s (pid %s)", name.c_str(), _var2str(pid));
+		PRINT_CRITICAL("waitpid error for process %s (pid %s)", name.c_str(), v2s(pid));
 		std::raise(SIGTERM);
 	}
 	if (WIFEXITED(status)) {
 		exit_code = WEXITSTATUS(status);
 		program_active = false;
-		std::string msg = sprintf("process %s (pid %s) exited, status=%s", name.c_str(), _var2str(pid), _var2str(exit_code));
+		std::string msg = sprintf("process %s (pid %s) exited, status=%s", name.c_str(), v2s(pid), v2s(exit_code));
 		if (exit_code != 0)
 			PRINT_WARN("%s", msg.c_str());
 		else
@@ -328,13 +326,13 @@ bool ProcessController::checkStatus() noexcept {
 	if (WIFSIGNALED(status)) {
 		signal = WTERMSIG(status);
 		program_active = false;
-		PRINT_WARN("process %s (pid %s) killed by signal %s", name.c_str(), _var2str(pid), _var2str(signal));
+		PRINT_WARN("process %s (pid %s) killed by signal %s", name.c_str(), v2s(pid), v2s(signal));
 		return false;
 	}
 	if (WIFSTOPPED(status)) {
 		signal = WSTOPSIG(status);
 		program_active = false;
-		PRINT_WARN("process %s (pid %s) stopped by signal %s", name.c_str(), _var2str(pid), _var2str(signal));
+		PRINT_WARN("process %s (pid %s) stopped by signal %s", name.c_str(), v2s(pid), v2s(signal));
 		return false;
 	}
 	program_active = (!WIFEXITED(status) && !WIFSIGNALED(status));

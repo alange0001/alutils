@@ -21,7 +21,10 @@ command-test: all
 random-test: all
 	build/test/random-test
 
-test: string-test print-test process-test command-test random-test
+socket-test: all
+	build/test/socket-test
+
+test: string-test print-test process-test command-test random-test socket-test
 
 clean:
 	cd build && make clean
