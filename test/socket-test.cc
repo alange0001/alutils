@@ -14,7 +14,7 @@ void handler(const std::string& str) {
 }
 
 int main(int argc, char** argv) {
-	printf("\n\n=====================\nstring-test:\n");
+	printf("\n\n=====================\nsocket-test:\n");
 	log_level = LOG_DEBUG;
 
 	const char* socket_name = "/tmp/alutils-socketserver.socket";
