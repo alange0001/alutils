@@ -9,24 +9,65 @@
 
 using namespace alutils;
 
-void handler(const std::string& str) {
-	printf("String received via socket: %s \n", str.c_str());
+void server_handler(Socket* obj, const std::string& msg, Socket::sender_t send_msg) {
+	printf("SERVER: string received: %s \n", msg.c_str());
+	send_msg("message received!", true);
+	//std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	throw std::runtime_error("test");
 }
+
+void server_error(Socket* obj, const Socket::ErrorData& data) {
+	printf("exception handler: msg=%s\n", data.msg.c_str());
+}
+
+void client_handler(Socket* obj, const std::string& msg, Socket::sender_t send_msg) {
+	printf("CLIENT: string received: %s \n", msg.c_str());
+}
+
+//#define TEST1
+#ifdef TEST1
+
+std::unique_ptr<int> a(new int{3});
+
+std::unique_ptr<int> f() {
+	std::unique_ptr<int> ret;
+	ret.swap(a);
+	return ret;
+}
+
+#endif
+
 
 int main(int argc, char** argv) {
 	printf("\n\n=====================\nsocket-test:\n");
 	log_level = LOG_DEBUG;
 
+#	ifdef TEST1
+	printf("a=%p\n", a.get());
+
+	std::unique_ptr<int> b = f();
+	std::unique_ptr<int> c;
+
+	printf("a=%p, b=%p, c=%p\n", a.get(), b.get(), c.get());
+
+	c.swap(b);
+	printf("a=%p, b=%p, c=%p\n", a.get(), b.get(), c.get());
+
+	exit(0);
+#	endif
+
 	const char* socket_name = "/tmp/alutils-socketserver.socket";
 
-	SocketServer server(socket_name, handler);
+	Socket server(Socket::tServer, socket_name, server_handler, Socket::Params{.buffer_size=2048, .server_error_handler=server_error});
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-	SocketClient client(socket_name);
+	Socket client(Socket::tClient, socket_name, client_handler, Socket::Params{.buffer_size=2048});
 	client.send_msg("test1");
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	client.send_msg("test2");
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	auto e = server.getError();
 
 	printf("OK!!\n");
 	return 0;
