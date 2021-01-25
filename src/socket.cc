@@ -34,15 +34,6 @@ static inline void sleep_ms(uint32_t ms) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
-#define HANDLE_EXCEPTION(_handler, _type)                                        \
-    setError(new ErrorData{_type, e.what(), std::current_exception()});          \
-    if (_handler != nullptr) {                                                   \
-        PRINT_DEBUG("%s: handler exception: %s", Type2Str, e.what());            \
-        _handler(this, ErrorData{_type, e.what(), thread_exception});            \
-    } else {                                                                     \
-        PRINT_ERROR("handler exception: %s", e.what());                          \
-    }
-
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -114,6 +105,15 @@ Socket::~Socket() {
 	}
 	PRINT_DEBUG("%s: destructor finished", Type2Str);
 }
+
+#define HANDLE_EXCEPTION(_handler, _type)                                        \
+    setError(new ErrorData{_type, e.what(), std::current_exception()});          \
+    if (_handler != nullptr) {                                                   \
+        PRINT_DEBUG("%s: handler exception: %s", Type2Str, e.what());            \
+        _handler(this, ErrorData{_type, e.what(), thread_exception});            \
+    } else {                                                                     \
+        PRINT_ERROR("handler exception: %s", e.what());                          \
+    }
 
 void Socket::thread_server_main() noexcept {
 	active = true;
