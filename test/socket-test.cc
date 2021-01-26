@@ -13,7 +13,7 @@ void server_handler(Socket* obj, const std::string& msg, Socket::sender_t send_m
 	printf("SERVER: string received: %s \n", msg.c_str());
 	send_msg("message received!", true);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	throw std::runtime_error("test");
+	//throw std::runtime_error("test");
 }
 
 void server_error(Socket* obj, const Socket::ErrorData& data) {
@@ -68,6 +68,11 @@ int main(int argc, char** argv) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 	auto e = server.getError();
+	if (e.get() != nullptr) {
+		printf("getError(): scope=%d, msg=%s\n", e->scope, e->msg.c_str());
+	} else {
+		printf("getError(): NULL\n");
+	}
 
 	printf("OK!!\n");
 	return 0;

@@ -24,9 +24,9 @@ public: // types:
 	enum type_t {tServer, tClient};
 	typedef std::function<bool(const std::string& msg, bool throw_except)> sender_t;
 	typedef std::function<void(Socket *obj, const std::string& msg, sender_t send_msg)> handler_t;
-	enum error_scope {tServerMain, tServerConnection, tServerHandler, tClientMain, tClientHandler};
+	enum ErrorScope {tServerMain, tServerConnection, tServerHandler, tClientMain, tClientHandler};
 	struct ErrorData {
-		error_scope scope;
+		ErrorScope scope;
 		const std::string msg;
 		std::exception_ptr exception;
 	};
@@ -69,7 +69,7 @@ private:
 	void thread_server_child(int fd) noexcept;
 	bool send_msg_fd(int fd, const std::string& str, bool throw_except);
 	void thread_client_main() noexcept;
-	void setError(ErrorData* val);
+	void handleException(const char* function_name, error_handler_t error_handler, ErrorScope scope, const std::string& except_msg, std::exception_ptr except_ptr);
 };
 
 } // namespace alutils

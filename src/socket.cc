@@ -106,15 +106,6 @@ Socket::~Socket() {
 	PRINT_DEBUG("%s: destructor finished", Type2Str);
 }
 
-#define HANDLE_EXCEPTION(_handler, _type)                                        \
-    setError(new ErrorData{_type, e.what(), std::current_exception()});          \
-    if (_handler != nullptr) {                                                   \
-        PRINT_DEBUG("%s: handler exception: %s", Type2Str, e.what());            \
-        _handler(this, ErrorData{_type, e.what(), thread_exception});            \
-    } else {                                                                     \
-        PRINT_ERROR("handler exception: %s", e.what());                          \
-    }
-
 void Socket::thread_server_main() noexcept {
 	active = true;
 	PRINT_DEBUG("%s: thread_server_main", Type2Str);
@@ -150,7 +141,7 @@ void Socket::thread_server_main() noexcept {
 			sleep_ms(200);
 		}
 	} catch (std::exception& e) {
-		HANDLE_EXCEPTION(params.server_error_handler, tServerMain);
+		handleException(__func__, params.server_error_handler, tServerMain, e.what(), std::current_exception());
 	}
 	close(sock);
 	active = false;
@@ -193,7 +184,7 @@ void Socket::thread_server_child(int fd) noexcept {
 								try {
 									handler(this, handler_data, sender);
 								} catch (std::exception& e) {
-									HANDLE_EXCEPTION(params.server_error_handler, tServerHandler);
+									handleException("thread_server_child.handler_thread", params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 								}
 								delete handler_data;
 								handler_count--;
@@ -203,7 +194,7 @@ void Socket::thread_server_child(int fd) noexcept {
 							try {
 								handler(this, buffer.get(), sender);
 							} catch (std::exception& e) {
-								HANDLE_EXCEPTION(params.server_error_handler, tServerHandler);
+								handleException(__func__, params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 							}
 						}
 						if (stop_ || !active) break;
@@ -222,7 +213,7 @@ void Socket::thread_server_child(int fd) noexcept {
 			sleep_ms(200);
 		}
 	} catch (std::exception& e) {
-		HANDLE_EXCEPTION(params.server_error_handler, tServerConnection);
+		handleException(__func__, params.server_error_handler, tServerConnection, e.what(), std::current_exception());
 	}
 	close(fd);
 	for (int i=0; i < 20 && handler_count.load() > 0; i++) {
@@ -277,7 +268,7 @@ void Socket::thread_client_main() noexcept {
 						try {
 							handler(this, handler_data, sender);
 						} catch (std::exception& e) {
-							HANDLE_EXCEPTION(params.client_error_handler, tClientHandler);
+							handleException("thread_client_main.handler_thread", params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 						}
 						delete handler_data;
 						handler_count--;
@@ -287,7 +278,7 @@ void Socket::thread_client_main() noexcept {
 					try {
 						handler(this, buffer.get(), sender);
 					} catch (std::exception& e) {
-						HANDLE_EXCEPTION(params.client_error_handler, tClientHandler);
+						handleException(__func__, params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 					}
 				}
 				if (stop_) break;
@@ -299,7 +290,7 @@ void Socket::thread_client_main() noexcept {
 			sleep_ms(200);
 		}
 	} catch (std::exception& e) {
-		HANDLE_EXCEPTION(params.client_error_handler, tClientMain);
+		handleException(__func__, params.client_error_handler, tClientMain, e.what(), std::current_exception());
 	}
 
 	close(sock);
@@ -315,19 +306,33 @@ bool Socket::isActive() {
 	return active;
 }
 
-void Socket::setError(ErrorData* val) {
-	int zero = 0;
-	while (! error_lock.compare_exchange_weak(zero, 1))
-		error_data.reset(val);
-	error_lock.store(0);
+void Socket::handleException(const char* function_name, error_handler_t error_handler, ErrorScope scope, const std::string& except_msg, std::exception_ptr except_ptr) {
+	PRINT_DEBUG("%s: handling error data: function=%s, scope=%d, msg=%s", Type2Str, function_name, scope, except_msg.c_str());
+
+	auto store_error = new ErrorData{.scope = scope, .msg = except_msg, .exception = except_ptr};
+
+	/*lock*/   int zero = 0; while (! error_lock.compare_exchange_weak(zero, 1)) zero = 0;
+	error_data.reset(store_error);
+	/*unlock*/ error_lock.store(0);
+
+	PRINT_DEBUG("%s: error_data = %p", Type2Str, error_data.get());
+
+	if (error_handler != nullptr) {
+		PRINT_DEBUG("%s: handler exception: %s", Type2Str, except_msg.c_str());
+		error_handler(this, ErrorData{.scope = scope, .msg = except_msg, .exception = except_ptr});
+	} else {
+		PRINT_ERROR("exception: %s", except_msg.c_str());
+	}
 }
 
 std::unique_ptr<Socket::ErrorData> Socket::getError() {
 	std::unique_ptr<ErrorData> ret;
-	int zero = 0;
-	while (! error_lock.compare_exchange_weak(zero, 1))
-		ret.swap(error_data);
-	error_lock.store(0);
+
+	/*lock*/   int zero = 0; while (! error_lock.compare_exchange_weak(zero, 1)) zero = 0;
+	ret.swap(error_data);
+	/*unlock*/ error_lock.store(0);
+
+	PRINT_DEBUG("%s: loading error data: scope=%d, msg=%s", Type2Str, ret.get()!=nullptr?ret->scope:-1, ret.get()!=nullptr?ret->msg.c_str():"NULL");
 	return ret;
 }
 
