@@ -48,8 +48,8 @@ private:
 	std::thread                thread;
 	std::exception_ptr         thread_exception;
 	std::unique_ptr<ErrorData> error_data;
-	std::atomic<int>           error_lock = 0;
-	std::atomic<int>           children = 0;
+	std::atomic<int>           error_lock;
+	std::atomic<int>           children;
 
 	Params                     params;
 

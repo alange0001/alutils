@@ -44,7 +44,7 @@ static inline void sleep_ms(uint32_t ms) {
 Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_) : Socket(type_, name_, handler_, Params()) {}
 
 Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_, Params params_) :
-               type(type_), name(name_), handler(handler_), params(params_)
+               type(type_), name(name_), handler(handler_), params(params_), error_lock(0), children(0)
 {
 	PRINT_DEBUG("%s: constructor", Type2Str);
 	PRINT_DEBUG("%s:\tname=%s", Type2Str, name.c_str());
