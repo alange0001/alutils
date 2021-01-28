@@ -23,3 +23,7 @@ set_property(TARGET random-test PROPERTY CXX_STANDARD 17)
 add_executable(socket-test socket-test.cc)
 target_link_libraries(socket-test alutils ${THIRDPARTY_LIBS})
 set_property(TARGET socket-test PROPERTY CXX_STANDARD 17)
+
+add_executable(tmp-test tmp-test.cc)
+target_link_libraries(tmp-test alutils ${THIRDPARTY_LIBS})
+set_property(TARGET tmp-test PROPERTY CXX_STANDARD 17)
