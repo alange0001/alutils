@@ -14,7 +14,7 @@ namespace alutils {
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
-#define __CLASS__ ""
+#define __CLASS__ "Socket::"
 
 /**
  * Bidirectional Unix socket server and client
@@ -71,5 +71,9 @@ private:
 	void thread_client_main() noexcept;
 	void handleException(const char* function_name, error_handler_t error_handler, ErrorScope scope, const std::string& except_msg, std::exception_ptr except_ptr);
 };
+
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ ""
 
 } // namespace alutils
