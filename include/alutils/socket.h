@@ -23,14 +23,20 @@ class Socket {
 public: // types:
 	enum type_t {tServer, tClient};
 	typedef std::function<bool(const std::string& msg, bool throw_except)> sender_t;
-	typedef std::function<void(Socket *obj, const std::string& msg, sender_t send_msg)> handler_t;
+	struct HandlerData {
+		Socket* obj;
+		const std::string msg;
+		sender_t send;
+	};
+	typedef std::function<void(HandlerData* data)> handler_t;
 	enum ErrorScope {tServerMain, tServerConnection, tServerHandler, tClientMain, tClientHandler};
 	struct ErrorData {
+		Socket* obj;
 		ErrorScope scope;
 		const std::string msg;
 		std::exception_ptr exception;
 	};
-	typedef std::function<void(Socket* obj, const ErrorData& data)> error_handler_t;
+	typedef std::function<void(ErrorData* data)> error_handler_t;
 	struct Params {
 		uint32_t               buffer_size = 1024;  // buffer used to receive each message
 		bool                   thread_handler = true;   // if true, spawn a new thread to call the handler for each message received
@@ -42,7 +48,7 @@ private:
 	type_t                     type;
 	std::string                name;
 	handler_t                  handler;
-	int                        sock;
+	int                        sock = -1;
 	bool                       active = false;
 	bool                       stop_ = false;
 	std::thread                thread;

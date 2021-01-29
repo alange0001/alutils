@@ -182,7 +182,8 @@ void Socket::thread_server_child(int fd) noexcept {
 							PRINT_DEBUG("%s: initiating handler thread", Type2Str);
 							std::thread handler_thread([this, sender, handler_data, &handler_count]()->void{
 								try {
-									handler(this, handler_data, sender);
+									HandlerData data = {.obj=this, .msg=handler_data, .send=sender};
+									handler(&data);
 								} catch (std::exception& e) {
 									handleException("thread_server_child.handler_thread", params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 								}
@@ -192,7 +193,8 @@ void Socket::thread_server_child(int fd) noexcept {
 							handler_thread.detach();
 						} else {
 							try {
-								handler(this, buffer.get(), sender);
+								HandlerData data = {.obj=this, .msg=buffer.get(), .send=sender};
+								handler(&data);
 							} catch (std::exception& e) {
 								handleException(__func__, params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 							}
@@ -266,7 +268,8 @@ void Socket::thread_client_main() noexcept {
 					PRINT_DEBUG("%s: initiating handler thread", Type2Str);
 					std::thread handler_thread([this, sender, handler_data, &handler_count]()->void{
 						try {
-							handler(this, handler_data, sender);
+							HandlerData data = {.obj=this, .msg=handler_data, .send=sender};
+							handler(&data);
 						} catch (std::exception& e) {
 							handleException("thread_client_main.handler_thread", params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 						}
@@ -276,7 +279,8 @@ void Socket::thread_client_main() noexcept {
 					handler_thread.detach();
 				} else {
 					try {
-						handler(this, buffer.get(), sender);
+						HandlerData data = {.obj=this, .msg=buffer.get(), .send=sender};
+						handler(&data);
 					} catch (std::exception& e) {
 						handleException(__func__, params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 					}
@@ -319,7 +323,8 @@ void Socket::handleException(const char* function_name, error_handler_t error_ha
 
 	if (error_handler != nullptr) {
 		PRINT_DEBUG("%s: handler exception: %s", Type2Str, except_msg.c_str());
-		error_handler(this, ErrorData{.scope = scope, .msg = except_msg, .exception = except_ptr});
+		ErrorData data = {.obj=this, .scope = scope, .msg = except_msg, .exception = except_ptr};
+		error_handler(&data);
 	} else {
 		PRINT_ERROR("exception: %s", except_msg.c_str());
 	}

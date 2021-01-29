@@ -9,19 +9,19 @@
 
 using namespace alutils;
 
-void server_handler(Socket* obj, const std::string& msg, Socket::sender_t send_msg) {
-	printf("SERVER: string received: %s \n", msg.c_str());
-	send_msg("message received!", true);
+void server_handler(Socket::HandlerData* data) {
+	printf("SERVER: string received: %s \n", data->msg.c_str());
+	data->send("message received!", true);
 	//std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	//throw std::runtime_error("test");
 }
 
-void server_error(Socket* obj, const Socket::ErrorData& data) {
-	printf("exception handler: msg=%s\n", data.msg.c_str());
+void server_error(Socket::ErrorData* data) {
+	printf("exception handler: msg=%s\n", data->msg.c_str());
 }
 
-void client_handler(Socket* obj, const std::string& msg, Socket::sender_t send_msg) {
-	printf("CLIENT: string received: %s \n", msg.c_str());
+void client_handler(Socket::HandlerData* data) {
+	printf("CLIENT: string received: %s \n", data->msg.c_str());
 }
 
 //#define TEST1
