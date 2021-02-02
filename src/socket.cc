@@ -24,16 +24,17 @@ namespace alutils {
 #undef __CLASS__
 #define __CLASS__ ""
 
-static inline char* allocate_buffer(uint32_t size) {
-	char* buffer = new char[size+1];
-	buffer[size] = '\0';
-	return buffer;
-}
-
 static inline void sleep_ms(uint32_t ms) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
+static int select_fd(int fd, uint32_t timeout_ms=1) {
+	fd_set fdset;
+	FD_ZERO(&fdset);
+	FD_SET(fd, &fdset);
+	timeval timeout {0, timeout_ms * 1000};
+	return select(fd +1, &fdset, NULL, NULL, &timeout);
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -154,36 +155,37 @@ void Socket::thread_server_child(int fd) noexcept {
 	std::atomic<int> handler_count = 0;
 
 	try {
-		std::unique_ptr<char> buffer(allocate_buffer(params.buffer_size));
-
-		fd_set fdset;
-		FD_ZERO(&fdset);
-		timeval timeout {0,1000};
-
 		auto sender = [this,fd](const std::string& msg, bool throw_except)->bool{return this->send_msg_fd(fd, msg, throw_except);};
 
+		std::unique_ptr<char> buffer(new char[params.buffer_size+1]); buffer.get()[params.buffer_size] = '\0';
+
 		while(!stop_ && active) {
-			FD_SET(fd, &fdset);
-			auto r = select(fd +1, &fdset, NULL, NULL, &timeout);
+			std::unique_ptr<HandlerData> data(new HandlerData{.obj=this, .send=sender});
+
+			auto r = select_fd(fd, 0);
 
 			if (stop_ || !active) break;
 			if (r > 0) {
-				auto r2 = read(fd, buffer.get(), params.buffer_size-1);
+				auto r2 = read(fd, buffer.get(), params.buffer_size);
+				if (r2 >= 0) {
+					buffer.get()[r2] = '\0';
+					data->msg = buffer.get();
+				}
 				if (stop_ || !active) break;
 
 				if (r2 > 0){
-					PRINT_DEBUG("%s: message received: %s", Type2Str, buffer.get());
+					PRINT_DEBUG("%s: message received: %s", Type2Str, data->msg.c_str());
+					data->more_data = (select_fd(sock, 0) > 0);
+
 					if (handler) {
 						if (params.thread_handler) {
 							PRINT_DEBUG("%s: swap buffers", Type2Str);
-							char* handler_data = buffer.release();
-							buffer.reset(allocate_buffer(params.buffer_size));
+							HandlerData* handler_data = data.release();
 							handler_count++;
 							PRINT_DEBUG("%s: initiating handler thread", Type2Str);
-							std::thread handler_thread([this, sender, handler_data, &handler_count]()->void{
+							std::thread handler_thread([this, handler_data, &handler_count]()->void{
 								try {
-									HandlerData data = {.obj=this, .msg=handler_data, .send=sender};
-									handler(&data);
+									handler(handler_data);
 								} catch (std::exception& e) {
 									handleException("thread_server_child.handler_thread", params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 								}
@@ -193,8 +195,7 @@ void Socket::thread_server_child(int fd) noexcept {
 							handler_thread.detach();
 						} else {
 							try {
-								HandlerData data = {.obj=this, .msg=buffer.get(), .send=sender};
-								handler(&data);
+								handler(data.get());
 							} catch (std::exception& e) {
 								handleException(__func__, params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 							}
@@ -250,26 +251,45 @@ void Socket::thread_client_main() noexcept {
 	active = true;
 	PRINT_DEBUG("%s: thread_client_main", Type2Str);
 
-	std::unique_ptr<char> buffer(allocate_buffer(params.buffer_size));
 	auto sender = [this](const std::string& msg, bool throw_except)->bool{return this->send_msg(msg, throw_except);};
 	std::atomic<int> handler_count = 0;
 
 	try {
+		std::unique_ptr<HandlerData> data;
+		std::unique_ptr<char> buffer(new char[params.buffer_size+1]); buffer.get()[params.buffer_size] = '\0';
+
 		while(! stop_) {
+			data.reset(new HandlerData{.obj=this, .send=sender});
+
 			auto r = recv(sock, buffer.get(), params.buffer_size, MSG_DONTWAIT);
+			if (r >= 0) {
+				buffer.get()[r] = '\0';
+				data->msg = buffer.get();
+			}
 			if (stop_) break;
 
 			if (r > 0 && handler) {
+				//PRINT_DEBUG("%s: msg = %s", Type2Str, data->msg.c_str());
+				data->more_data = (select_fd(sock, 0) > 0);
+				while (data->more_data) {
+					auto r_more = recv(sock, buffer.get(), params.buffer_size, MSG_DONTWAIT);
+					if (r_more >= 0) {
+						buffer.get()[r_more] = '\0';
+						data->msg += buffer.get();
+					}
+					//PRINT_DEBUG("%s: msg = %s", Type2Str, data->msg.c_str());
+					data->more_data = (select_fd(sock, 0) > 0);
+				}
+				if (stop_) break;
+
 				if (params.thread_handler) {
-					PRINT_DEBUG("%s: swap buffers", Type2Str);
-					char* handler_data = buffer.release();
-					buffer.reset(allocate_buffer(params.buffer_size));
+					HandlerData* handler_data = data.release();
+					//PRINT_DEBUG("%s: release data from unique_ptr. msg = %s", Type2Str, handler_data->msg.c_str());
 					handler_count++;
 					PRINT_DEBUG("%s: initiating handler thread", Type2Str);
-					std::thread handler_thread([this, sender, handler_data, &handler_count]()->void{
+					std::thread handler_thread([this, handler_data, &handler_count]()->void{
 						try {
-							HandlerData data = {.obj=this, .msg=handler_data, .send=sender};
-							handler(&data);
+							handler(handler_data);
 						} catch (std::exception& e) {
 							handleException("thread_client_main.handler_thread", params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 						}
@@ -279,16 +299,17 @@ void Socket::thread_client_main() noexcept {
 					handler_thread.detach();
 				} else {
 					try {
-						HandlerData data = {.obj=this, .msg=buffer.get(), .send=sender};
-						handler(&data);
+						handler(data.get());
 					} catch (std::exception& e) {
 						handleException(__func__, params.client_error_handler, tClientHandler, e.what(), std::current_exception());
 					}
 				}
 				if (stop_) break;
 			} else if (r == -1) {
-				PRINT_DEBUG("%s: recv error: %s", Type2Str, strerror(errno));
-				//throw std::runtime_error(sprintf("failed to receive message from socket \"%s\": %s", name.c_str(), strerror(errno)).c_str());
+				if (errno != 11) {
+					PRINT_ERROR("%s: recv error %s: %s", Type2Str, v2s(errno), strerror(errno));
+					//throw std::runtime_error(sprintf("failed to receive message from socket \"%s\": %s", name.c_str(), strerror(errno)).c_str());
+				}
 			}
 
 			sleep_ms(200);

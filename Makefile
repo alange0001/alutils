@@ -30,4 +30,4 @@ tmp-test: all
 test: string-test print-test process-test command-test random-test socket-test
 
 clean:
-	cd build && make clean
+	rm -fr build

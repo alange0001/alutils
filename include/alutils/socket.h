@@ -9,6 +9,8 @@
 #include <functional>
 #include <string>
 #include <atomic>
+#include <vector>
+#include <memory>
 
 namespace alutils {
 
@@ -25,8 +27,9 @@ public: // types:
 	typedef std::function<bool(const std::string& msg, bool throw_except)> sender_t;
 	struct HandlerData {
 		Socket* obj;
-		const std::string msg;
+		std::string msg;
 		sender_t send;
+		bool more_data = false;
 	};
 	typedef std::function<void(HandlerData* data)> handler_t;
 	enum ErrorScope {tServerMain, tServerConnection, tServerHandler, tClientMain, tClientHandler};
