@@ -52,6 +52,7 @@ private:
 	std::string                name;
 	handler_t                  handler;
 	int                        sock = -1;
+	bool                       main_thread_ok = false;
 	bool                       active = false;
 	bool                       stop_ = false;
 	std::thread                thread;

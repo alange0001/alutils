@@ -97,6 +97,8 @@ Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_,
 
 		PRINT_DEBUG("%s: initiating the main server thread", Type2Str);
 		thread = std::thread(&Socket::thread_server_main, this);
+		while (! main_thread_ok)
+			sleep_ms(100);
 	} else {
 		PRINT_DEBUG("%s: connecting to the socket named \"%s\"", Type2Str, name.c_str());
 		if (connect(sock, (sockaddr*) &s_name, sizeof(s_name)) == -1)
@@ -104,6 +106,8 @@ Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_,
 
 		PRINT_DEBUG("%s: initiating the client thread", Type2Str);
 		thread = std::thread(&Socket::thread_client_main, this);
+		while (! main_thread_ok)
+			sleep_ms(100);
 	}
 	PRINT_DEBUG("%s: constructor finished", Type2Str);
 }
@@ -127,6 +131,7 @@ Socket::~Socket() {
 }
 
 void Socket::thread_server_main() noexcept {
+	main_thread_ok = true;
 	active = true;
 	PRINT_DEBUG("%s: thread_server_main", Type2Str);
 
@@ -269,6 +274,7 @@ bool Socket::send_msg(const std::string& str, bool throw_except){
 }
 
 void Socket::thread_client_main() noexcept {
+	main_thread_ok = true;
 	active = true;
 	PRINT_DEBUG("%s: thread_client_main", Type2Str);
 
