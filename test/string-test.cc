@@ -145,6 +145,19 @@ int main(int argc, char** argv) {
 		}
 	}
 
+	{
+#		define TEST_PARSE(str, pattern) { \
+			ParseRE p(str, pattern); \
+			printf("ParseRE(\"%s\", \"%s\"): valid=%s, value=%s\n", str, pattern, p.valid?"true":"false", p.value.c_str()); }
+
+		TEST_PARSE("test ", "[0-9]+");
+		TEST_PARSE("test 123", "[0-9]+");
+		TEST_PARSE("test 123 456", "[0-9]+");
+		TEST_PARSE("test 123", "([0-9]+)");
+		TEST_PARSE("test 123 456", "([0-9]+)");
+		TEST_PARSE("test 123", "test ([0-9]+)");
+	}
+
 	printf("OK!!\n");
 	return 0;
 }

@@ -79,4 +79,12 @@ DECLARE_PARSE_SUFFIX(parseDoubleSuffix, double  );
 std::string vsprintf(const char* format, va_list args);
 std::string sprintf(const char* format, ...);
 
+////////////////////////////////////////////////////////////////////////////////////
+struct ParseRE {
+	bool        valid;
+	std::string value;
+	ParseRE(const std::string& source, const std::string& pattern);
+	ParseRE(const std::string& source, const std::string& pattern, std::string& dest);
+};
+
 } // namespace alutils

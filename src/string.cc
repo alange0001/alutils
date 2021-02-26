@@ -270,4 +270,32 @@ std::string sprintf(const char* format, ...) {
 	return ret;
 }
 
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ "ParseRE::"
+
+ParseRE::ParseRE(const std::string& source, const std::string& pattern) : valid(false), value("") {
+	std::cmatch cm;
+	std::regex_search(source.c_str(), cm, std::regex(pattern.c_str()), std::regex_constants::match_any);
+	if (log_level == LOG_DEBUG) {
+		PRINT_DEBUG("source = \"%s\"; pattern = \"%s\"", source.c_str(), pattern.c_str());
+		for (int i=0; i<cm.size(); i++) {
+			PRINT_DEBUG("\tcm.str(%d) = %s", i, cm.str(i).c_str());
+		}
+	}
+	if (cm.size() > 0) {
+		valid = true;
+		if (cm.size() == 1)
+			value = cm.str(0);
+		else
+			value = cm.str(1);
+	}
+}
+
+ParseRE::ParseRE(const std::string& source, const std::string& pattern, std::string& dest) : ParseRE(source, pattern) {
+	if (valid) {
+		dest = value;
+	}
+}
+
 } // namespace alutils
