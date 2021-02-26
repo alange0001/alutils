@@ -179,29 +179,34 @@ void Socket::thread_server_child(int fd) noexcept {
 	std::atomic<int> handler_count = 0;
 
 	try {
+		PRINT_DEBUG("%s: creating main variables", Type2Str);
 		auto sender = [this,fd](const std::string& msg, bool throw_except)->bool{return this->send_msg_fd(fd, msg, throw_except);};
-
 		std::unique_ptr<char> buffer(new char[params.buffer_size+1]); buffer.get()[params.buffer_size] = '\0';
 
+		PRINT_DEBUG("%s: main loop", Type2Str);
 		while(!stop_ && active) {
-			std::unique_ptr<HandlerData> data(new HandlerData{.obj=this, .send=sender});
 
 			auto r = select_fd(fd, 0);
 
 			if (stop_ || !active) break;
 			if (r > 0) {
 				auto r2 = read(fd, buffer.get(), params.buffer_size);
-				if (r2 >= 0) {
-					buffer.get()[r2] = '\0';
-					data->msg = buffer.get();
+				if (r2 == 0) {
+					PRINT_DEBUG("%s: end of file", Type2Str);
+					break;
 				}
 				if (stop_ || !active) break;
 
 				if (r2 > 0){
-					PRINT_DEBUG("%s: message received: %s", Type2Str, data->msg.c_str());
-					data->more_data = (select_fd(sock, 0) > 0);
+					PRINT_DEBUG("%s: r2 = %d", Type2Str, r2);
+					buffer.get()[r2] = '\0';
+					PRINT_DEBUG("%s: message received: %s", Type2Str, buffer.get());
 
 					if (handler) {
+						PRINT_DEBUG("%s: preparing data for handler", Type2Str);
+						std::unique_ptr<HandlerData> data(new HandlerData{.obj=this, .send=sender});
+						data->msg = buffer.get();
+						data->more_data = (select_fd(sock, 0) > 0);
 						if (params.thread_handler) {
 							PRINT_DEBUG("%s: swap buffers", Type2Str);
 							HandlerData* handler_data = data.release();
@@ -219,16 +224,15 @@ void Socket::thread_server_child(int fd) noexcept {
 							handler_thread.detach();
 						} else {
 							try {
+								PRINT_DEBUG("%s: initiating handler (no subthread)", Type2Str);
 								handler(data.get());
 							} catch (std::exception& e) {
 								handleException(__func__, params.server_error_handler, tServerHandler, e.what(), std::current_exception());
 							}
 						}
+						PRINT_DEBUG("%s: handler finished", Type2Str);
 						if (stop_ || !active) break;
 					}
-				} else if (r2 == 0) {
-					PRINT_DEBUG("%s: end of file", Type2Str);
-					break;
 				} else if (r2 == -1) {
 					if (errno != EAGAIN) {
 						throw std::runtime_error(sprintf("failed to read data from the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
@@ -236,11 +240,14 @@ void Socket::thread_server_child(int fd) noexcept {
 				}
 
 			} else if (r == -1) {
-				throw std::runtime_error(sprintf("select syscall returned error for the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
+				if (errno != EAGAIN) {
+					throw std::runtime_error(sprintf("select syscall returned error for the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
+				}
 			}
 
 			sleep_ms(200);
 		}
+		PRINT_DEBUG("%s: main loop finished", Type2Str);
 	} catch (std::exception& e) {
 		handleException(__func__, params.server_error_handler, tServerConnection, e.what(), std::current_exception());
 	}

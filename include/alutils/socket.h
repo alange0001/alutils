@@ -42,7 +42,7 @@ public: // types:
 	typedef std::function<void(ErrorData* data)> error_handler_t;
 	struct Params {
 		uint32_t               buffer_size = 1024;  // buffer used to receive each message
-		bool                   thread_handler = true;   // if true, spawn a new thread to call the handler for each message received
+		bool                   thread_handler = false;   // if true, spawn a new thread to call the handler for each message received
 		error_handler_t server_error_handler = nullptr;
 		error_handler_t client_error_handler = nullptr;
 	};
