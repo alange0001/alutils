@@ -12,6 +12,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <poll.h>
 #include <unistd.h>
 #include <cerrno>
 #include <cstdlib>
@@ -26,14 +27,6 @@ namespace alutils {
 
 static inline void sleep_ms(uint32_t ms) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
-
-static int select_fd(int fd, uint32_t timeout_ms=1) {
-	fd_set fdset;
-	FD_ZERO(&fdset);
-	FD_SET(fd, &fdset);
-	timeval timeout {0, timeout_ms * 1000};
-	return select(fd +1, &fdset, NULL, NULL, &timeout);
 }
 
 static const char* errno2name(int errno_) {
@@ -51,9 +44,71 @@ static const char* errno2name(int errno_) {
 #	undef E2S
 }
 
-static inline const std::string strerror_plus(int errno_) {
+inline const std::string strerror_plus(int errno_) {
 	return sprintf("[%s:%d] %s", errno2name(errno_), errno_, strerror(errno_));
 }
+
+
+////////////////////////////////////////////////////////////////////////////////////
+#undef __CLASS__
+#define __CLASS__ "Poll::"
+
+struct Poll {
+	int   fd;
+	short revents   = 0;
+	bool  exception = false;
+	int   errno_    = 0;
+
+	Poll(int fd_, uint32_t timeout_ms=0, bool throw_except=true) : fd(fd_) {
+		pollfd pfd{
+			.fd = fd,
+			.events=(POLLIN|POLLOUT|POLLRDHUP|POLLHUP|POLLERR|POLLNVAL),
+			.revents=0};
+
+		auto ret = poll(&pfd, 1, timeout_ms);
+		if (ret != -1) {
+			revents = pfd.revents;
+			if (log_level <= LOG_DEBUG && (pfd.revents & (eof_events | error_events))) {
+				PRINT_DEBUG("fd = %d, revents = %s", fd, str().c_str());
+			}
+
+		} else { // ret == -1
+			errno_ = errno;
+			if (errno != EAGAIN && errno != EINTR) {
+				exception = true;
+				if (throw_except)
+					throw std::runtime_error(sprintf("poll syscall returned an error for file descriptor %d: %s", fd, strerror_plus(errno)).c_str());
+			}
+		}
+	}
+
+	std::string str(short filter = 0xffff) {
+		std::string aux;
+	#	define P2S( pname, descr ) if (revents & filter & pname) {aux += (aux.length())?"; ":""; aux += #pname; aux += ": \"" descr "\"";}
+		P2S(POLLIN,     "there is data to read");
+		P2S(POLLPRI,    "");
+		P2S(POLLOUT,    "writing is now possible");
+		P2S(POLLRDHUP,  "stream socket peer closed connection, or shut down writing half of connection");
+		P2S(POLLERR,    "error condition");
+		P2S(POLLHUP,    "hang up");
+		P2S(POLLNVAL,   "invalid request");
+		P2S(POLLRDBAND, "priority band data can be read");
+		P2S(POLLWRBAND, "priority data may be written");
+	#	undef P2S
+		return sprintf("{%s}", aux.c_str());
+	}
+
+	bool is_eof() {
+		return revents & eof_events;
+	}
+
+	bool is_error() {
+		return revents & error_events;
+	}
+
+	static const short eof_events   = POLLRDHUP | POLLHUP;
+	static const short error_events = POLLERR   | POLLNVAL;
+};
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -139,16 +194,11 @@ void Socket::thread_server_main() noexcept {
 		sockaddr client_addr;
 		socklen_t client_addr_size = sizeof(client_addr);
 
-		fd_set fdset;
-		FD_ZERO(&fdset);
-		timeval timeout {0,1000};
-
 		while(!stop_) {
-			FD_SET(sock, &fdset);
-			auto r = select(sock +1, &fdset, NULL, NULL, &timeout);
+			Poll sock_poll(sock);
 
 			if (stop_) break;
-			if (r > 0) {
+			if (sock_poll.revents & POLLIN) {
 				auto fd = accept4(sock, &client_addr, &client_addr_size, SOCK_NONBLOCK);
 				if (stop_) break;
 				if (fd < 0) {
@@ -156,11 +206,14 @@ void Socket::thread_server_main() noexcept {
 				}
 
 				PRINT_DEBUG("%s: Connection received (fd=%d). Creating child thread.", Type2Str, fd);
-				std::thread child([this, fd]()->void{this->thread_server_child(fd);});
+				std::thread child([this, fd]()->void{thread_server_child(fd);});
 				child.detach();
 
-			} else if (r == -1) {
-				throw std::runtime_error(sprintf("select syscall returned error for the socket \"%s\": %s", name.c_str(), strerror_plus(errno).c_str()).c_str());
+			} else if (sock_poll.is_eof()) {
+				PRINT_DEBUG("poll syscall returned EOF for the socket \"%s\": %s", name.c_str(), sock_poll.str(Poll::eof_events).c_str());
+				break;
+			} else if (sock_poll.is_error()) {
+				throw std::runtime_error(sprintf("poll syscall returned error for the socket \"%s\": %s", name.c_str(), sock_poll.str(Poll::error_events).c_str()).c_str());
 			}
 
 			sleep_ms(200);
@@ -186,10 +239,10 @@ void Socket::thread_server_child(int fd) noexcept {
 		PRINT_DEBUG("%s: main loop", Type2Str);
 		while(!stop_ && active) {
 
-			auto r = select_fd(fd, 0);
+			Poll fd_poll(fd);
 
 			if (stop_ || !active) break;
-			if (r > 0) {
+			if (fd_poll.revents & POLLIN) {
 				auto r2 = read(fd, buffer.get(), params.buffer_size);
 				if (r2 == 0) {
 					PRINT_DEBUG("%s: end of file", Type2Str);
@@ -206,7 +259,7 @@ void Socket::thread_server_child(int fd) noexcept {
 						PRINT_DEBUG("%s: preparing data for handler", Type2Str);
 						std::unique_ptr<HandlerData> data(new HandlerData{.obj=this, .send=sender});
 						data->msg = buffer.get();
-						data->more_data = (select_fd(sock, 0) > 0);
+						data->more_data = (Poll(fd).revents & POLLIN);
 						if (params.thread_handler) {
 							PRINT_DEBUG("%s: swap buffers", Type2Str);
 							HandlerData* handler_data = data.release();
@@ -234,15 +287,17 @@ void Socket::thread_server_child(int fd) noexcept {
 						if (stop_ || !active) break;
 					}
 				} else if (r2 == -1) {
-					if (errno != EAGAIN) {
+					if (errno != EAGAIN && errno != EINTR) {
 						throw std::runtime_error(sprintf("failed to read data from the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
 					}
 				}
 
-			} else if (r == -1) {
-				if (errno != EAGAIN) {
-					throw std::runtime_error(sprintf("select syscall returned error for the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
-				}
+			} else if (fd_poll.is_eof()) {
+				PRINT_DEBUG("poll syscall returned EOF for the socket \"%s\", connection %d: %s", name.c_str(), fd, fd_poll.str(Poll::eof_events).c_str());
+				break;
+
+			} else if (fd_poll.is_error()) {
+				throw std::runtime_error(sprintf("poll syscall returned error for the socket \"%s\", connection %d: %s", name.c_str(), fd, fd_poll.str(Poll::error_events).c_str()).c_str());
 			}
 
 			sleep_ms(200);
@@ -304,7 +359,7 @@ void Socket::thread_client_main() noexcept {
 
 			if (r > 0 && handler) {
 				//PRINT_DEBUG("%s: msg = %s", Type2Str, data->msg.c_str());
-				data->more_data = (select_fd(sock, 0) > 0);
+				data->more_data = (Poll(sock).revents & POLLIN);
 				while (data->more_data) {
 					auto r_more = recv(sock, buffer.get(), params.buffer_size, MSG_DONTWAIT);
 					if (r_more >= 0) {
@@ -312,7 +367,7 @@ void Socket::thread_client_main() noexcept {
 						data->msg += buffer.get();
 					}
 					//PRINT_DEBUG("%s: msg = %s", Type2Str, data->msg.c_str());
-					data->more_data = (select_fd(sock, 0) > 0);
+					data->more_data = (Poll(sock).revents & POLLIN);;
 				}
 				if (stop_) break;
 
@@ -340,7 +395,7 @@ void Socket::thread_client_main() noexcept {
 				}
 				if (stop_) break;
 			} else if (r == -1) {
-				if (errno != EAGAIN) {
+				if (errno != EAGAIN && errno != EINTR) {
 					PRINT_ERROR("%s: recv error: %s", Type2Str, strerror_plus(errno).c_str());
 				}
 			}
