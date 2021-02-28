@@ -156,6 +156,14 @@ int main(int argc, char** argv) {
 		TEST_PARSE("test 123", "([0-9]+)");
 		TEST_PARSE("test 123 456", "([0-9]+)");
 		TEST_PARSE("test 123", "test ([0-9]+)");
+
+		ParseRE r;
+		if ((r = ParseRE("test 123", "[0-9]+")).valid) {
+			printf("ParseRE.sm.size() = %ld\n", r.sm.size());
+		}
+		if ((r = ParseRE("test 123", "([0-9]+)")).valid) {
+			printf("ParseRE.sm.size() = %ld\n", r.sm.size());
+		}
 	}
 
 	printf("OK!!\n");

@@ -10,6 +10,7 @@
 #include <map>
 #include <algorithm>
 #include <functional>
+#include <regex>
 
 namespace alutils {
 
@@ -81,8 +82,10 @@ std::string sprintf(const char* format, ...);
 
 ////////////////////////////////////////////////////////////////////////////////////
 struct ParseRE {
-	bool        valid;
+	bool        valid = false;
 	std::string value;
+	std::smatch sm;
+	ParseRE();
 	ParseRE(const std::string& source, const std::string& pattern);
 	ParseRE(const std::string& source, const std::string& pattern, std::string& dest);
 };

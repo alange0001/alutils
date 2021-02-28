@@ -10,7 +10,6 @@
 #include <regex>
 #include <stdexcept>
 #include <memory>
-#include <regex>
 #include <type_traits>
 
 #include <stdarg.h>
@@ -274,21 +273,22 @@ std::string sprintf(const char* format, ...) {
 #undef __CLASS__
 #define __CLASS__ "ParseRE::"
 
+ParseRE::ParseRE() {}
+
 ParseRE::ParseRE(const std::string& source, const std::string& pattern) : valid(false), value("") {
-	std::cmatch cm;
-	std::regex_search(source.c_str(), cm, std::regex(pattern.c_str()), std::regex_constants::match_any);
+	std::regex_search(source, sm, std::regex(pattern.c_str()), std::regex_constants::match_any);
 	if (log_level == LOG_DEBUG) {
 		PRINT_DEBUG("source = \"%s\"; pattern = \"%s\"", source.c_str(), pattern.c_str());
-		for (int i=0; i<cm.size(); i++) {
-			PRINT_DEBUG("\tcm.str(%d) = %s", i, cm.str(i).c_str());
+		for (int i=0; i<sm.size(); i++) {
+			PRINT_DEBUG("\tsm.str(%d) = %s", i, sm.str(i).c_str());
 		}
 	}
-	if (cm.size() > 0) {
+	if (sm.size() > 0) {
 		valid = true;
-		if (cm.size() == 1)
-			value = cm.str(0);
+		if (sm.size() == 1)
+			value = sm.str(0);
 		else
-			value = cm.str(1);
+			value = sm.str(1);
 	}
 }
 
