@@ -3,16 +3,17 @@
 // LICENSE.GPLv2 file in the root directory) and Apache 2.0 License
 // (found in the LICENSE.Apache file in the root directory).
 
+#include "alutils/socket.h"
+
 #include "alutils/print.h"
 #include "alutils/internal.h"
-#include "alutils/socket.h"
 #include "alutils/string.h"
+#include "alutils/io.h"
 
 #include <stdexcept>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <poll.h>
 #include <unistd.h>
 #include <cerrno>
 #include <cstdlib>
@@ -28,87 +29,6 @@ namespace alutils {
 static inline void sleep_ms(uint32_t ms) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
-
-static const char* errno2name(int errno_) {
-#	define E2S( ename ) if (errno_ == ename) return #ename
-	E2S(EAGAIN);
-	E2S(EWOULDBLOCK);
-	E2S(EBADF);
-	E2S(EFAULT);
-	E2S(EINTR);
-	E2S(EINVAL);
-	E2S(EIO);
-	E2S(EISDIR);
-	E2S(ENOMEM);
-	return "unknown";
-#	undef E2S
-}
-
-inline const std::string strerror_plus(int errno_) {
-	return sprintf("[%s:%d] %s", errno2name(errno_), errno_, strerror(errno_));
-}
-
-
-////////////////////////////////////////////////////////////////////////////////////
-#undef __CLASS__
-#define __CLASS__ "Poll::"
-
-struct Poll {
-	int   fd;
-	short revents   = 0;
-	bool  exception = false;
-	int   errno_    = 0;
-
-	Poll(int fd_, uint32_t timeout_ms=0, bool throw_except=true) : fd(fd_) {
-		pollfd pfd{
-			.fd = fd,
-			.events=(POLLIN|POLLOUT|POLLRDHUP|POLLHUP|POLLERR|POLLNVAL),
-			.revents=0};
-
-		auto ret = poll(&pfd, 1, timeout_ms);
-		if (ret != -1) {
-			revents = pfd.revents;
-			if (log_level <= LOG_DEBUG && (pfd.revents & (eof_events | error_events))) {
-				PRINT_DEBUG("fd = %d, revents = %s", fd, str().c_str());
-			}
-
-		} else { // ret == -1
-			errno_ = errno;
-			if (errno != EAGAIN && errno != EINTR) {
-				exception = true;
-				if (throw_except)
-					throw std::runtime_error(sprintf("poll syscall returned an error for file descriptor %d: %s", fd, strerror_plus(errno)).c_str());
-			}
-		}
-	}
-
-	std::string str(short filter = 0xffff) {
-		std::string aux;
-	#	define P2S( pname, descr ) if (revents & filter & pname) {aux += (aux.length())?"; ":""; aux += #pname; aux += ": \"" descr "\"";}
-		P2S(POLLIN,     "there is data to read");
-		P2S(POLLPRI,    "");
-		P2S(POLLOUT,    "writing is now possible");
-		P2S(POLLRDHUP,  "stream socket peer closed connection, or shut down writing half of connection");
-		P2S(POLLERR,    "error condition");
-		P2S(POLLHUP,    "hang up");
-		P2S(POLLNVAL,   "invalid request");
-		P2S(POLLRDBAND, "priority band data can be read");
-		P2S(POLLWRBAND, "priority data may be written");
-	#	undef P2S
-		return sprintf("{%s}", aux.c_str());
-	}
-
-	bool is_eof() {
-		return revents & eof_events;
-	}
-
-	bool is_error() {
-		return revents & error_events;
-	}
-
-	static const short eof_events   = POLLRDHUP | POLLHUP;
-	static const short error_events = POLLERR   | POLLNVAL;
-};
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -139,16 +59,16 @@ Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_,
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1)
-		throw std::runtime_error(sprintf("failed to create the socket \"%s\": %s", name.c_str(), strerror_plus(errno).c_str()).c_str());
+		throw std::runtime_error(sprintf("failed to create the socket \"%s\": %s", name.c_str(), strerror2(errno).c_str()).c_str());
 	PRINT_DEBUG("%s: sock = %d", Type2Str, sock);
 
 	if (type == tServer) {
 		PRINT_DEBUG("%s: bind socket name \"%s\"", Type2Str, name.c_str());
 		if (bind(sock, (struct sockaddr *) &s_name, sizeof(sockaddr_un)) == -1)
-			throw std::runtime_error(sprintf("failed to bind the socket name \"%s\": %s", name.c_str(), strerror_plus(errno).c_str()).c_str());
+			throw std::runtime_error(sprintf("failed to bind the socket name \"%s\": %s", name.c_str(), strerror2(errno).c_str()).c_str());
 		PRINT_DEBUG("%s: listening the socket named \"%s\"", Type2Str, name.c_str());
 		if (listen(sock, 5) == -1)
-			throw std::runtime_error(sprintf("failed to listen the socket name \"%s\": %s", name.c_str(), strerror_plus(errno).c_str()).c_str());
+			throw std::runtime_error(sprintf("failed to listen the socket name \"%s\": %s", name.c_str(), strerror2(errno).c_str()).c_str());
 
 		PRINT_DEBUG("%s: initiating the main server thread", Type2Str);
 		thread = std::thread(&Socket::thread_server_main, this);
@@ -157,7 +77,7 @@ Socket::Socket(const type_t type_, const std::string& name_, handler_t handler_,
 	} else {
 		PRINT_DEBUG("%s: connecting to the socket named \"%s\"", Type2Str, name.c_str());
 		if (connect(sock, (sockaddr*) &s_name, sizeof(s_name)) == -1)
-			throw std::runtime_error(sprintf("failed to connect to the socket \"%s\": %s", name.c_str(), strerror_plus(errno).c_str()).c_str());
+			throw std::runtime_error(sprintf("failed to connect to the socket \"%s\": %s", name.c_str(), strerror2(errno).c_str()).c_str());
 
 		PRINT_DEBUG("%s: initiating the client thread", Type2Str);
 		thread = std::thread(&Socket::thread_client_main, this);
@@ -202,7 +122,7 @@ void Socket::thread_server_main() noexcept {
 				auto fd = accept4(sock, &client_addr, &client_addr_size, SOCK_NONBLOCK);
 				if (stop_) break;
 				if (fd < 0) {
-					throw std::runtime_error(sprintf("accept4 returned error for the socket \"%s\": %s",name.c_str(), strerror_plus(errno).c_str()).c_str());
+					throw std::runtime_error(sprintf("accept4 returned error for the socket \"%s\": %s",name.c_str(), strerror2(errno).c_str()).c_str());
 				}
 
 				PRINT_DEBUG("%s: Connection received (fd=%d). Creating child thread.", Type2Str, fd);
@@ -288,7 +208,7 @@ void Socket::thread_server_child(int fd) noexcept {
 					}
 				} else if (r2 == -1) {
 					if (errno != EAGAIN && errno != EINTR) {
-						throw std::runtime_error(sprintf("failed to read data from the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
+						throw std::runtime_error(sprintf("failed to read data from the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror2(errno).c_str()).c_str());
 					}
 				}
 
@@ -319,7 +239,7 @@ bool Socket::send_msg_fd(int fd, const std::string& str, bool throw_except){
 	PRINT_DEBUG("%s: send message: %s", Type2Str, str.c_str());
 	if (send(fd, str.c_str(), str.length(), MSG_CONFIRM) == -1) {
 		if (throw_except)
-			throw std::runtime_error(sprintf("failed to send a message to the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror_plus(errno).c_str()).c_str());
+			throw std::runtime_error(sprintf("failed to send a message to the socket \"%s\", connection %d: %s", name.c_str(), fd, strerror2(errno).c_str()).c_str());
 		else
 			return false;
 	}
@@ -396,7 +316,7 @@ void Socket::thread_client_main() noexcept {
 				if (stop_) break;
 			} else if (r == -1) {
 				if (errno != EAGAIN && errno != EINTR) {
-					PRINT_ERROR("%s: recv error: %s", Type2Str, strerror_plus(errno).c_str());
+					PRINT_ERROR("%s: recv error: %s", Type2Str, strerror2(errno).c_str());
 				}
 			}
 

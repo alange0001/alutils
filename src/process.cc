@@ -4,9 +4,11 @@
 // (found in the LICENSE.Apache file in the root directory).
 
 #include "alutils/process.h"
+
 #include "alutils/string.h"
 #include "alutils/internal.h"
 #include "alutils/print.h"
+#include "alutils/io.h"
 
 #include <string>
 #include <stdexcept>
@@ -26,28 +28,20 @@ namespace alutils {
 #define __CLASS__ ""
 
 bool monitor_fgets (char* buffer, int buffer_size, std::FILE* file, bool* stop, uint64_t interval) {
-	struct timeval timeout {0,0};
-
 	auto fd = fileno(file);
-	PRINT_DEBUG("fd=%s", v2s(fd));
-	fd_set readfds;
-	FD_ZERO(&readfds);
 
 	while (!*stop) {
-		FD_SET(fd, &readfds);
-		auto r = select(fd +1, &readfds, NULL, NULL, &timeout);
-		if (r > 0) {
+		Poll r(fd);
+		if (r.revents & POLLIN) {
 			if (std::fgets(buffer, buffer_size, file) == NULL)
 				return false;
 			return true;
 		}
 
-		if (r < 0)
-			throw std::runtime_error("select call error");
-		if (std::feof(file))
+		if (r.is_error())
+			throw std::runtime_error(sprintf("poll syscall returned error events for file descriptor %d: %s", fd, r.str(Poll::error_events).c_str()).c_str());
+		if (r.is_eof())
 			return false;
-		if (std::ferror(file))
-			throw std::runtime_error("file error");
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(interval));
 	}
