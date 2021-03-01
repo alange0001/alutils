@@ -10,6 +10,13 @@ list(APPEND THIRDPARTY_LIBS pthread)
 list(APPEND THIRDPARTY_LIBS dl)
 list(APPEND THIRDPARTY_LIBS m)
 
+# 3rd-party/procps:
+#   Source code: https://gitlab.com/procps-ng/procps.git
+#   Download and compilation routines are in Makefile.
+set(PROCPS_DIR "${PROJECT_DIR}/3rd-party/procps")
+include_directories("${PROCPS_DIR}")
+list(APPEND THIRDPARTY_LIBS ${PROCPS_DIR}/proc/.libs/libprocps.a)
+
 #################################################################
 
 include_directories("${PROJECT_DIR}/include")

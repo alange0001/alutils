@@ -23,7 +23,7 @@ bool monitor_fgets (char* buffer, int buffer_size, std::FILE* file, bool* stop, 
 
 std::string command_output(const char* cmd);
 
-std::vector<pid_t> get_children(pid_t parent_pid);
+std::vector<pid_t> get_children(pid_t pid, bool recursive);
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__

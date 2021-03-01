@@ -15,11 +15,13 @@
 #include <sstream>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
 #include <cstdarg>
 #include <csignal>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <proc/readproc.h>
 
 namespace alutils {
 
@@ -76,38 +78,43 @@ std::string command_output(const char* cmd) {
 	return ret;
 }
 
-std::vector<pid_t> get_children(pid_t parent_pid) {
+std::vector<pid_t> get_children(pid_t pid, bool recursive) {
 	std::vector<pid_t> ret;
-	PRINT_DEBUG("parent pid: %s", v2s(parent_pid));
-	try {
-		std::string cmd = sprintf(
-			"getcpid() {                        \n"
-			"    cpids=$(pgrep -P $1|xargs)     \n"
-			"    for cpid in $cpids;            \n"
-			"    do                             \n"
-			"        echo \"$cpid\"             \n"
-			"        getcpid $cpid              \n"
-			"    done                           \n"
-			"}                                  \n"
-			"getcpid %s |xargs", v2s(parent_pid));
-		auto children = command_output(cmd.c_str());
-		PRINT_DEBUG("children: %s", children.c_str());
-		auto pids = split_str(children, " ");
-		for (auto i: pids) {
-			if (i.length() == 0) continue;
-			try {
-				pid_t pid = parseUint64(i, true, 0, sprintf("error parsing child pid (value=%s)",i).c_str());
-				ret.push_back(pid);
-			} catch (const std::exception& e) {
-				PRINT_ERROR(e.what());
-			}
+	PRINT_DEBUG("parent pid: %s", v2s(pid));
+
+	auto proc_tab = openproc(PROC_FILLSTAT);
+	while (auto proc_i = readproc(proc_tab, nullptr)) {
+		if (proc_i->ppid == pid) {
+			ret.push_back(proc_i->tgid);
 		}
-	} catch (const std::exception& e) {
-		PRINT_ERROR(e.what());
+		freeproc(proc_i);
+	}
+	closeproc(proc_tab);
+
+	if (recursive) {
+		for (int i = 0; i < ret.size(); i++) {
+			proc_tab = openproc(PROC_FILLSTAT);
+			while (auto proc_i = readproc(proc_tab, nullptr)) {
+				if (proc_i->ppid == ret[i]) {
+					ret.push_back(proc_i->tgid);
+				}
+				freeproc(proc_i);
+			}
+			closeproc(proc_tab);
+		}
+	}
+
+	if (log_level <= LOG_DEBUG) {
+		std::string aux;
+		for (auto p : ret) {
+			aux += " " + std::to_string(p);
+		}
+		PRINT_DEBUG("\t child pids:%s", aux.c_str());
 	}
 
 	return ret;
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 #undef __CLASS__
@@ -175,7 +182,7 @@ ProcessController::~ProcessController() {
 		PRINT_WARN("process %s (pid %s) still active. kill it", name.c_str(), v2s(pid));
 		kill(pid, SIGTERM);
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		auto children = get_children(pid);
+		auto children = get_children(pid, true);
 		for (auto i: children) {
 			PRINT_WARN("child (pid %s) of process %s (pid %s) still active. kill it", v2s(i), name.c_str(), v2s(pid));
 			kill(i, SIGTERM);
